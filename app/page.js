@@ -54,12 +54,55 @@ export default function Home() {
   };
 
   const handleDeleteCategory = async (id) => {
-    if (!confirm('카테고리를 삭제하면 포함된 모든 파일 정보도 삭제됩니다.')) return;
-    await supabase.from('categories').delete().eq('id', id);
-    const updated = categories.filter((c) => c.id !== id);
-    setCategories(updated);
-    setSelectedCategory(updated[0] || null);
-  };
+      if (!confirm('카테고리를 삭제하면 포함된 모든 파일과 정보가 완전히 삭제됩니다. 진행하시겠습니까?')) return;
+  
+      try {
+        // 1. 해당 카테고리에 속한 모든 파일 목록 DB에서 가져오기
+        const { data: categoryFiles } = await supabase
+          .from('files')
+          .select('*')
+          .eq('category_id', id);
+  
+        // 2. Supabase Storage에서 해당 카테고리의 실제 파일들 모두 삭제
+        if (categoryFiles && categoryFiles.length > 0) {
+          const storagePaths = categoryFiles.map((file) => {
+            const urlParts = file.file_url.split('/study-files/');
+            return urlParts.length > 1 ? decodeURIComponent(urlParts[1]) : null;
+          }).filter(Boolean);
+  
+          if (storagePaths.length > 0) {
+            const { error: storageError } = await supabase.storage
+              .from('study-files')
+              .remove(storagePaths);
+  
+            if (storageError) {
+              console.error('카테고리 파일 Storage 삭제 실패:', storageError);
+            }
+          }
+        }
+  
+        // 3. Supabase DB에서 카테고리 삭제 
+        // (테이블에 ON DELETE CASCADE가 설정되어 있어 files 테이블의 데이터도 자동 함께 삭제됨)
+        const { error: dbError } = await supabase
+          .from('categories')
+          .delete()
+          .eq('id', id);
+  
+        if (dbError) {
+          alert('DB 카테고리 삭제 실패: ' + dbError.message);
+          return;
+        }
+  
+        // 4. UI 상태 업데이트
+        const updated = categories.filter((c) => c.id !== id);
+        setCategories(updated);
+        setSelectedCategory(updated[0] || null);
+  
+      } catch (err) {
+        console.error('카테고리 삭제 중 오류 발생:', err);
+        alert('카테고리 삭제에 실패했습니다.');
+      }
+    };
 
   const handleFileUpload = async (e) => {
     const fileList = e.target.files;
