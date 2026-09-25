@@ -144,9 +144,9 @@ export default function Home() {
     }
   };
 
+  // PDF 및 기타 파일 미리보기 주소 처리 (PDF는 직접 열어 gview 다운로드 오류 방지)
   const getPreviewUrl = (fileUrl, fileName) => {
     const ext = fileName.split('.').pop().toLowerCase();
-    // PDF와 HTML은 구글 뷰어를 거치지 않고 원본 URL로 직접 열어 gview 다운로드 기록 방지
     if (ext === 'pdf' || ext === 'html' || ext === 'htm') {
       return fileUrl;
     }
@@ -157,11 +157,6 @@ export default function Home() {
     setPreviewFile(null);
     setIsHtml(false);
     setHtmlContent('');
-  };
-
-  // 일반 파일용 (PDF 등) 미리보기 주소
-  const getPreviewUrl = (fileUrl) => {
-    return `https://docs.google.com/gview?url=${encodeURIComponent(fileUrl)}&embedded=true`;
   };
 
   return (
@@ -263,16 +258,16 @@ export default function Home() {
             </div>
             
             {isHtml ? (
-              // HTML 파일일 경우: 디코딩된 바이너리 텍스트를 iframe (srcDoc)으로 직접 주입하여 웹 화면으로 렌더링
+              // HTML 파일: 디코딩된 텍스트를 srcDoc으로 직접 주입
               <iframe
                 srcDoc={htmlContent}
                 className="w-full flex-1 border rounded bg-white"
                 title="HTML Preview"
               />
             ) : (
-              // PDF 등 기타 파일일 경우: 구글 뷰어로 표시
+              // PDF 등 기타 파일: getPreviewUrl 함수를 거쳐 깔끔하게 표출
               <iframe
-                src={getPreviewUrl(previewFile.file_url)}
+                src={getPreviewUrl(previewFile.file_url, previewFile.file_name)}
                 className="w-full flex-1 border rounded bg-white"
               />
             )}
