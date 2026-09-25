@@ -69,12 +69,18 @@ export default function Home() {
       const cleanFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
       const filePath = `${selectedCategory.id}/${Date.now()}_${cleanFileName}`;
       
+      const ext = file.name.split('.').pop().toLowerCase();
+      let customContentType = file.type || 'application/octet-stream';
+      if (ext === 'html' || ext === 'htm') {
+        customContentType = 'text/html; charset=utf-8';
+      }
+
       const { error: uploadError } = await supabase.storage
         .from('study-files')
         .upload(filePath, file, {
           cacheControl: '3600',
           upsert: true,
-          contentType: file.type || 'application/octet-stream'
+          contentType: customContentType
         });
 
       if (uploadError) {
@@ -90,7 +96,7 @@ export default function Home() {
         file_name: file.name,
         file_url: urlData.publicUrl,
         file_size: file.size,
-        file_type: file.type || file.name.split('.').pop()
+        file_type: file.type || ext
       }]);
     }
 
@@ -104,11 +110,11 @@ export default function Home() {
     setFiles(files.filter(f => f.id !== id));
   };
 
-  // 미리보기 주소 분기 처리 함수
+  // 미리보기 주소 분기 처리
   const getPreviewUrl = (fileUrl, fileName) => {
     const ext = fileName.split('.').pop().toLowerCase();
     if (ext === 'html' || ext === 'htm') {
-      return fileUrl; // HTML 파일은 직접 렌더링
+      return fileUrl; // HTML 파일은 직접 랜더링
     }
     return `https://docs.google.com/gview?url=${encodeURIComponent(fileUrl)}&embedded=true`;
   };
