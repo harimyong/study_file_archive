@@ -16,10 +16,10 @@ export default function Home() {
   const [newCategoryName, setNewCategoryName] = useState('');
   const [uploading, setUploading] = useState(false);
   
-  // 미리보기 모달 상태
+  // 미리보기 모달 통합 상태
   const [previewFile, setPreviewFile] = useState(null);
-  const [htmlContent, setHtmlContent] = useState('');
-  const [isHtml, setIsHtml] = useState(false);
+  const [previewType, setPreviewType] = useState(''); // 'image' | 'html' | 'text' | 'pdf' | 'doc'
+  const [textContent, setTextContent] = useState('');
 
   useEffect(() => {
     fetchCategories();
@@ -76,7 +76,7 @@ export default function Home() {
 
       if (ext === 'html' || ext === 'htm') {
         customContentType = 'text/html; charset=utf-8';
-      } else if (ext === 'txt' || ext === 'md') {
+      } else if (ext === 'txt' || ext === 'md' || ext === 'json' || ext === 'js' || ext === 'css') {
         customContentType = 'text/plain; charset=utf-8';
       }
 
@@ -115,7 +115,7 @@ export default function Home() {
     setFiles(files.filter(f => f.id !== id));
   };
 
-  // ★ 강제 파일 다운로드 함수 (새 창으로 넘어가지 않고 컴퓨터에 직접 다운로드)
+  // 강제 다운로드 처리
   const handleDownloadFile = async (fileUrl, fileName) => {
     try {
       const response = await fetch(fileUrl);
@@ -124,59 +124,74 @@ export default function Home() {
       
       const link = document.createElement('a');
       link.href = blobUrl;
-      link.download = fileName; // 원본 한글 파일명 유지
+      link.download = fileName;
       document.body.appendChild(link);
       link.click();
       
       document.body.removeChild(link);
       window.URL.revokeObjectURL(blobUrl);
     } catch (error) {
-      // 오류 발생 시 대체 다운로드 시도
       window.open(fileUrl, '_blank');
     }
   };
 
-  // 미리보기 클릭 시 한글 인코딩 변환 처리
+  // ★ 모든 확장자에 대한 다중 미리보기 처리 분기 로직
   const handleOpenPreview = async (file) => {
     setPreviewFile(file);
     const ext = file.file_name.split('.').pop().toLowerCase();
 
-    if (ext === 'html' || ext === 'htm') {
-      setIsHtml(true);
-      setHtmlContent('불러오는 중...');
+    // 1. 이미지 확장자
+    if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp'].includes(ext)) {
+      setPreviewType('image');
+    } 
+    // 2. HTML 확장자
+    else if (['html', 'htm'].includes(ext)) {
+      setPreviewType('html');
+      setTextContent('불러오는 중...');
       try {
         const res = await fetch(file.file_url);
         const buffer = await res.arrayBuffer();
-        
         let decoder = new TextDecoder('euc-kr');
         let text = decoder.decode(buffer);
-        
         if (text.includes('')) {
           text = new TextDecoder('utf-8').decode(buffer);
         }
-        
-        setHtmlContent(text);
+        setTextContent(text);
       } catch (err) {
-        setHtmlContent('<p>파일 내용을 불러오지 못했습니다.</p>');
+        setTextContent('<p>파일 내용을 불러오지 못했습니다.</p>');
       }
-    } else {
-      setIsHtml(false);
-      setHtmlContent('');
+    } 
+    // 3. 일반 텍스트 및 코드 파일 확장자
+    else if (['txt', 'md', 'json', 'js', 'css', 'py', 'java', 'c', 'cpp'].includes(ext)) {
+      setPreviewType('text');
+      setTextContent('텍스트를 읽어오는 중...');
+      try {
+        const res = await fetch(file.file_url);
+        const buffer = await res.arrayBuffer();
+        let decoder = new TextDecoder('utf-8');
+        let text = decoder.decode(buffer);
+        if (text.includes('')) {
+          text = new TextDecoder('euc-kr').decode(buffer);
+        }
+        setTextContent(text);
+      } catch (err) {
+        setTextContent('파일을 읽는 중 에러가 발생했습니다.');
+      }
+    } 
+    // 4. PDF 문서
+    else if (ext === 'pdf') {
+      setPreviewType('pdf');
+    } 
+    // 5. 기타 문서 (PPTX, DOCX, XLSX 등) -> 구글 뷰어 활용
+    else {
+      setPreviewType('doc');
     }
-  };
-
-  const getPreviewUrl = (fileUrl, fileName) => {
-    const ext = fileName.split('.').pop().toLowerCase();
-    if (ext === 'pdf' || ext === 'html' || ext === 'htm') {
-      return fileUrl;
-    }
-    return `https://docs.google.com/gview?url=${encodeURIComponent(fileUrl)}&embedded=true`;
   };
 
   const closePreview = () => {
     setPreviewFile(null);
-    setIsHtml(false);
-    setHtmlContent('');
+    setPreviewType('');
+    setTextContent('');
   };
 
   return (
@@ -249,16 +264,9 @@ export default function Home() {
                       <button onClick={() => handleOpenPreview(file)} className="p-1 text-gray-500 hover:text-indigo-600" title="미리보기">
                         <Eye size={16} />
                       </button>
-                      
-                      {/* 강제 다운로드 함수 연결 */}
-                      <button 
-                        onClick={() => handleDownloadFile(file.file_url, file.file_name)} 
-                        className="p-1 text-gray-500 hover:text-indigo-600" 
-                        title="다운로드"
-                      >
+                      <button onClick={() => handleDownloadFile(file.file_url, file.file_name)} className="p-1 text-gray-500 hover:text-indigo-600" title="다운로드">
                         <Download size={16} />
                       </button>
-
                       <button onClick={() => handleDeleteFile(file.id)} className="p-1 text-gray-500 hover:text-red-600" title="삭제">
                         <Trash2 size={16} />
                       </button>
@@ -273,7 +281,7 @@ export default function Home() {
         )}
       </div>
 
-      {/* 미리보기 모달 */}
+      {/* 종합 맞춤 미리보기 모달 */}
       {previewFile && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg w-full max-w-5xl h-5/6 flex flex-col p-4 shadow-xl">
@@ -284,18 +292,50 @@ export default function Home() {
               </button>
             </div>
             
-            {isHtml ? (
-              <iframe
-                srcDoc={htmlContent}
-                className="w-full flex-1 border rounded bg-white"
-                title="HTML Preview"
-              />
-            ) : (
-              <iframe
-                src={getPreviewUrl(previewFile.file_url, previewFile.file_name)}
-                className="w-full flex-1 border rounded bg-white"
-              />
-            )}
+            <div className="flex-1 w-full overflow-auto flex items-center justify-center bg-gray-50 border rounded">
+              {/* 1. 이미지 미리보기 */}
+              {previewType === 'image' && (
+                <img
+                  src={previewFile.file_url}
+                  alt={previewFile.file_name}
+                  className="max-w-full max-h-full object-contain"
+                />
+              )}
+
+              {/* 2. HTML 웹페이지 직접 렌더링 */}
+              {previewType === 'html' && (
+                <iframe
+                  srcDoc={textContent}
+                  className="w-full h-full bg-white border-0"
+                  title="HTML Preview"
+                />
+              )}
+
+              {/* 3. 텍스트 / 코드 파일 직접 표출 */}
+              {previewType === 'text' && (
+                <pre className="w-full h-full p-4 overflow-auto whitespace-pre-wrap font-mono text-sm text-gray-800 bg-white">
+                  {textContent}
+                </pre>
+              )}
+
+              {/* 4. PDF 브라우저 직접 렌더링 */}
+              {previewType === 'pdf' && (
+                <iframe
+                  src={previewFile.file_url}
+                  className="w-full h-full border-0"
+                  title="PDF Preview"
+                />
+              )}
+
+              {/* 5. PPTX / DOCX 등 일반 문서 (구글 뷰어) */}
+              {previewType === 'doc' && (
+                <iframe
+                  src={`https://docs.google.com/gview?url=${encodeURIComponent(previewFile.file_url)}&embedded=true`}
+                  className="w-full h-full border-0"
+                  title="Doc Preview"
+                />
+              )}
+            </div>
           </div>
         </div>
       )}
