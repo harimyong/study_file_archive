@@ -93,11 +93,6 @@ export default function Home() {
         file_type: file.type || file.name.split('.').pop()
       }]);
     }
-
-    fetchFiles(selectedCategory.id);
-    setUploading(false);
-  };
-
     fetchFiles(selectedCategory.id);
     setUploading(false);
   };
