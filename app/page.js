@@ -281,12 +281,18 @@ export default function Home() {
     fetchUsersAndPermissions();
   };
 
-  // 유저 계정 생성 (관리자 모달)
+  // 유저 계정 생성 (중복 체크 및 예외 처리 강화)
   const handleCreateUser = async (e) => {
     e.preventDefault();
     if (!newUserEmail || !newUserPassword) return;
 
-    const { error } = await supabase.auth.signUp({
+    // 비밀번호 길이는 최소 6자리 이상 필요
+    if (newUserPassword.length < 6) {
+      alert('비밀번호는 최소 6자리 이상이어야 합니다.');
+      return;
+    }
+
+    const { data, error } = await supabase.auth.signUp({
       email: newUserEmail,
       password: newUserPassword,
       options: { data: { role: 'user' } }
@@ -294,17 +300,24 @@ export default function Home() {
 
     if (error) {
       alert('유저 생성 실패: ' + error.message);
-    } else {
-      alert(`[${newUserEmail}] 유저 계정이 성공적으로 생성되었습니다.`);
-      setNewUserEmail('');
-      setNewUserPassword('');
-      fetchUsersAndPermissions();
+      return;
     }
+
+    // Supabase는 이미 있는 이메일일 경우 identities 배열이 비어서 반환됨
+    if (data?.user && data.user.identities && data.user.identities.length === 0) {
+      alert('이미 존재하거나 가입된 이메일 계정입니다.');
+      return;
+    }
+
+    alert(`[${newUserEmail}] 유저 계정이 성공적으로 생성되었습니다.`);
+    setNewUserEmail('');
+    setNewUserPassword('');
+    fetchUsersAndPermissions();
   };
 
-  // ★ 유저 계정 및 권한 완전 삭제 (관리자 기능)
+  // 유저 계정 및 권한 삭제
   const handleDeleteUser = async (userId, userEmail) => {
-    if (!confirm(`[${userEmail}] 유저를 완전히 삭제하시겠습니까? 해당 유저는 더 이상 서비스에 접속할 수 없게 됩니다.`)) return;
+    if (!confirm(`[${userEmail}] 유저를 완전히 삭제하시겠습니까?\n삭제 후 해당 계정은 접근할 수 없게 됩니다.`)) return;
 
     try {
       // 1. 카테고리 권한 정보 삭제
@@ -315,15 +328,16 @@ export default function Home() {
 
       if (error) {
         alert('유저 삭제 실패: ' + error.message);
-      } else {
-        alert('유저 삭제가 완료되었습니다.');
-        setUsersList(usersList.filter(u => u.id !== userId));
+        return;
       }
+
+      alert('유저 삭제가 완료되었습니다.');
+      setUsersList(usersList.filter(u => u.id !== userId));
     } catch (err) {
       console.error('유저 삭제 오류:', err);
+      alert('유저 삭제 중 오류가 발생했습니다.');
     }
   };
-
   // 카테고리 권한 토글 체크박스 (관리자 모달)
   const handleTogglePermission = async (userId, categoryId) => {
     const currentPerms = userPermissions[userId] || [];
