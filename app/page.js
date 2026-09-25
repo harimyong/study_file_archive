@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { FolderPlus, Upload, FileText, Trash2, Download, Eye, HardDrive } from 'lucide-react';
+import { FolderPlus, Upload, FileText, Trash2, Download, Eye, HardDrive, X } from 'lucide-react';
 
 const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseUrl = rawUrl.replace(/\/rest\/v1\/?$/, '').replace(/\/$/, '');
@@ -15,7 +15,12 @@ export default function Home() {
   const [files, setFiles] = useState([]);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [uploading, setUploading] = useState(false);
-  const [previewFile, setPreviewFile] = useState(null);
+  
+  // 미리보기 관련 상태
+  const [previewUrl, setPreviewUrl] = useState(null);
+  const [previewFileName, setPreviewFileName] = useState('');
+  const [textContent, setTextContent] = useState('');
+  const [isText, setIsText] = useState(false);
 
   useEffect(() => {
     fetchCategories();
@@ -90,9 +95,43 @@ export default function Home() {
     setFiles(files.filter(f => f.id !== id));
   };
 
+  // 한글 깨짐 방지 미리보기 로직
+  const handlePreview = async (file) => {
+    const ext = file.file_name.split('.').pop().toLowerCase();
+    setPreviewFileName(file.file_name);
+    
+    if (['txt', 'md', 'json', 'js', 'css', 'html'].includes(ext)) {
+      setIsText(true);
+      setTextContent('파일을 읽어오는 중...');
+      try {
+        const res = await fetch(file.file_url);
+        const buffer = await res.arrayBuffer();
+        
+        // EUC-KR / UTF-8 인코딩 감지 및 변환
+        let text = new TextDecoder('utf-8').decode(buffer);
+        if (text.includes('')) {
+          text = new TextDecoder('euc-kr').decode(buffer);
+        }
+        setTextContent(text);
+      } catch (err) {
+        setTextContent('파일 내용을 읽어오지 못했습니다.');
+      }
+      setPreviewUrl(file.file_url);
+    } else {
+      setIsText(false);
+      setPreviewUrl(file.file_url);
+    }
+  };
+
+  const closePreview = () => {
+    setPreviewUrl(null);
+    setTextContent('');
+    setIsText(false);
+  };
+
   return (
     <div className="flex h-screen bg-gray-100 font-sans">
-      {/* 사이드바: 카테고리 */}
+      {/* 사이드바 */}
       <div className="w-64 bg-white border-r p-4 flex flex-col justify-between">
         <div>
           <div className="flex items-center space-x-2 text-indigo-600 mb-6 font-bold text-xl">
@@ -116,7 +155,7 @@ export default function Home() {
               <div
                 key={cat.id}
                 onClick={() => setSelectedCategory(cat)}
-                className={`flex items-center justify-between p-2 rounded cursor-pointer text-sm ${
+                className={`flex items-center justify-between p-2 rounded cursor-pointer text-sm group ${
                   selectedCategory?.id === cat.id ? 'bg-indigo-50 text-indigo-700 font-semibold' : 'text-gray-600 hover:bg-gray-50'
                 }`}
               >
@@ -128,7 +167,7 @@ export default function Home() {
         </div>
       </div>
 
-      {/* 메인 영역: 파일 목록 */}
+      {/* 메인 파일 영역 */}
       <div className="flex-1 p-8 overflow-y-auto">
         {selectedCategory ? (
           <div>
@@ -157,7 +196,7 @@ export default function Home() {
                       </div>
                     </div>
                     <div className="flex justify-end space-x-2 border-t pt-2 mt-2">
-                      <button onClick={() => setPreviewFile(file.file_url)} className="p-1 text-gray-500 hover:text-indigo-600" title="미리보기">
+                      <button onClick={() => handlePreview(file)} className="p-1 text-gray-500 hover:text-indigo-600" title="미리보기">
                         <Eye size={16} />
                       </button>
                       <a href={file.file_url} download target="_blank" rel="noreferrer" className="p-1 text-gray-500 hover:text-indigo-600" title="다운로드">
@@ -177,15 +216,23 @@ export default function Home() {
         )}
       </div>
 
-      {/* 미리보기 모달 */}
-      {previewFile && (
+      {/* 개선된 한글 안깨지는 미리보기 모달 */}
+      {previewUrl && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg w-full max-w-4xl h-5/6 flex flex-col p-4">
-            <div className="flex justify-between items-center mb-2">
-              <h3 className="font-bold">파일 미리보기</h3>
-              <button onClick={() => setPreviewFile(null)} className="text-gray-500 hover:text-black">✕</button>
+          <div className="bg-white rounded-lg w-full max-w-4xl h-5/6 flex flex-col p-4 shadow-xl">
+            <div className="flex justify-between items-center mb-3 pb-2 border-b">
+              <h3 className="font-bold text-gray-800 truncate">{previewFileName} 미리보기</h3>
+              <button onClick={closePreview} className="text-gray-500 hover:text-black p-1">
+                <X size={20} />
+              </button>
             </div>
-            <iframe src={previewFile} className="w-full flex-1 border rounded" />
+            {isText ? (
+              <pre className="w-full flex-1 border p-4 rounded bg-gray-50 overflow-auto whitespace-pre-wrap font-mono text-sm leading-relaxed text-gray-800">
+                {textContent}
+              </pre>
+            ) : (
+              <iframe src={previewUrl} className="w-full flex-1 border rounded" />
+            )}
           </div>
         </div>
       )}
