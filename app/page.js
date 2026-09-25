@@ -59,7 +59,7 @@ export default function Home() {
     setSelectedCategory(updated[0] || null);
   };
 
-  const handleFileUpload = async (e) => {
+ const handleFileUpload = async (e) => {
     const fileList = e.target.files;
     if (!fileList || fileList.length === 0 || !selectedCategory) return;
     setUploading(true);
@@ -68,8 +68,20 @@ export default function Home() {
       const file = fileList[i];
       const filePath = `${selectedCategory.id}/${Date.now()}_${file.name}`;
       
-      const { error: uploadError } = await supabase.storage.from('study-files').upload(filePath, file);
-      if (uploadError) continue;
+      // contentType을 지정하여 MIME 타입 차단 우회 및 업로드 안전성 확보
+      const { error: uploadError } = await supabase.storage
+        .from('study-files')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: true,
+          contentType: file.type || 'application/octet-stream'
+        });
+
+      if (uploadError) {
+        console.error('업로드 실패 원인:', uploadError);
+        alert(`[${file.name}] 업로드 실패: ${uploadError.message}`);
+        continue;
+      }
 
       const { data: urlData } = supabase.storage.from('study-files').getPublicUrl(filePath);
 
@@ -81,6 +93,10 @@ export default function Home() {
         file_type: file.type || file.name.split('.').pop()
       }]);
     }
+
+    fetchFiles(selectedCategory.id);
+    setUploading(false);
+  };
 
     fetchFiles(selectedCategory.id);
     setUploading(false);
