@@ -73,6 +73,8 @@ export default function Home() {
       let customContentType = file.type || 'application/octet-stream';
       if (ext === 'html' || ext === 'htm') {
         customContentType = 'text/html; charset=utf-8';
+      } else if (ext === 'txt' || ext === 'md') {
+        customContentType = 'text/plain; charset=utf-8';
       }
 
       const { error: uploadError } = await supabase.storage
