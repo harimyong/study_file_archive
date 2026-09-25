@@ -135,8 +135,7 @@ export default function Home() {
     }
   };
 
-  // ★ 모든 확장자에 대한 다중 미리보기 처리 분기 로직
-  const handleOpenPreview = async (file) => {
+const handleOpenPreview = async (file) => {
     setPreviewFile(file);
     const ext = file.file_name.split('.').pop().toLowerCase();
 
@@ -161,17 +160,21 @@ export default function Home() {
         setTextContent('<p>파일 내용을 불러오지 못했습니다.</p>');
       }
     } 
-    // 3. 일반 텍스트 및 코드 파일 확장자
+    // 3. 텍스트 및 코드 파일 (한글 깨짐 자동 판별 디코딩)
     else if (['txt', 'md', 'json', 'js', 'css', 'py', 'java', 'c', 'cpp'].includes(ext)) {
       setPreviewType('text');
       setTextContent('텍스트를 읽어오는 중...');
       try {
         const res = await fetch(file.file_url);
         const buffer = await res.arrayBuffer();
-        let decoder = new TextDecoder('utf-8');
+        
+        // 1차 EUC-KR 디코딩 시도
+        let decoder = new TextDecoder('euc-kr');
         let text = decoder.decode(buffer);
+        
+        // 깨짐 문자()가 보이면 UTF-8로 재시도
         if (text.includes('')) {
-          text = new TextDecoder('euc-kr').decode(buffer);
+          text = new TextDecoder('utf-8').decode(buffer);
         }
         setTextContent(text);
       } catch (err) {
@@ -182,7 +185,7 @@ export default function Home() {
     else if (ext === 'pdf') {
       setPreviewType('pdf');
     } 
-    // 5. 기타 문서 (PPTX, DOCX, XLSX 등) -> 구글 뷰어 활용
+    // 5. 기타 문서 (PPTX, DOCX, XLSX 등)
     else {
       setPreviewType('doc');
     }
@@ -313,7 +316,7 @@ export default function Home() {
 
               {/* 3. 텍스트 / 코드 파일 직접 표출 */}
               {previewType === 'text' && (
-                <pre className="w-full h-full p-4 overflow-auto whitespace-pre-wrap font-mono text-sm text-gray-800 bg-white">
+                <pre className="w-full h-full p-4 overflow-auto whitespace-pre-wrap font-sans text-sm leading-relaxed text-gray-800 bg-white border-0">
                   {textContent}
                 </pre>
               )}
