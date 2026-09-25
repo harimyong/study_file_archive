@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { FolderPlus, Upload, FileText, Trash2, Download, Eye, HardDrive, X, Users, LogOut, ShieldCheck } from 'lucide-react';
+import { FolderPlus, Upload, FileText, Trash2, Download, Eye, HardDrive, X, Users, LogOut, ShieldCheck, UserX } from 'lucide-react';
 
 const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseUrl = rawUrl.replace(/\/rest\/v1\/?$/, '').replace(/\/$/, '');
@@ -34,7 +34,7 @@ export default function Home() {
   const [usersList, setUsersList] = useState([]);
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserPassword, setNewUserPassword] = useState('');
-  const [userPermissions, setUserPermissions] = useState({}); // { userId: [categoryId1, categoryId2] }
+  const [userPermissions, setUserPermissions] = useState({});
 
   // 1. 세션 확인 및 초기화
   useEffect(() => {
@@ -56,7 +56,7 @@ export default function Home() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // 2. 로그인 유저 프로필(역할) 조회
+  // 2. 로그인 유저 프로필 조회
   const fetchUserProfile = async (userId) => {
     const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
     if (data) {
@@ -72,11 +72,9 @@ export default function Home() {
     if (!allCategories) return;
 
     if (profile.role === 'admin') {
-      // 관리자는 모든 카테고리 조회
       setCategories(allCategories);
       if (allCategories.length > 0 && !selectedCategory) setSelectedCategory(allCategories[0]);
     } else {
-      // 일반 유저는 허용된 카테고리만 조회
       const { data: permData } = await supabase
         .from('category_permissions')
         .select('category_id')
@@ -304,6 +302,28 @@ export default function Home() {
     }
   };
 
+  // ★ 유저 계정 및 권한 완전 삭제 (관리자 기능)
+  const handleDeleteUser = async (userId, userEmail) => {
+    if (!confirm(`[${userEmail}] 유저를 완전히 삭제하시겠습니까? 해당 유저는 더 이상 서비스에 접속할 수 없게 됩니다.`)) return;
+
+    try {
+      // 1. 카테고리 권한 정보 삭제
+      await supabase.from('category_permissions').delete().eq('user_id', userId);
+      
+      // 2. profiles 테이블 데이터 삭제
+      const { error } = await supabase.from('profiles').delete().eq('id', userId);
+
+      if (error) {
+        alert('유저 삭제 실패: ' + error.message);
+      } else {
+        alert('유저 삭제가 완료되었습니다.');
+        setUsersList(usersList.filter(u => u.id !== userId));
+      }
+    } catch (err) {
+      console.error('유저 삭제 오류:', err);
+    }
+  };
+
   // 카테고리 권한 토글 체크박스 (관리자 모달)
   const handleTogglePermission = async (userId, categoryId) => {
     const currentPerms = userPermissions[userId] || [];
@@ -325,7 +345,7 @@ export default function Home() {
   };
 
   // ----------------------------------------------------
-  // 🔒 로그인하지 않은 경우 로그인 화면 표출
+  // 🔒 로그인 화면
   // ----------------------------------------------------
   if (!session) {
     return (
@@ -530,14 +550,14 @@ export default function Home() {
         </div>
       )}
 
-      {/* 관리자 전용: 유저 생성 및 카테고리 권한 설정 모달 */}
+      {/* 관리자 전용: 유저 생성/삭제 및 권한 설정 모달 */}
       {showUserModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg w-full max-w-3xl max-h-[85vh] flex flex-col p-6 shadow-xl overflow-hidden">
             <div className="flex justify-between items-center pb-3 border-b mb-4">
               <div className="flex items-center gap-2 text-indigo-600 font-bold text-lg">
                 <ShieldCheck />
-                <span>유저 계정 생성 및 카테고리 접근 권한 설정</span>
+                <span>유저 계정 및 카테고리 권한 관리</span>
               </div>
               <button onClick={() => setShowUserModal(false)} className="text-gray-500 hover:text-black">
                 <X size={20} />
@@ -545,7 +565,7 @@ export default function Home() {
             </div>
 
             <div className="overflow-y-auto flex-1 space-y-6 pr-2">
-              {/* 유저 생성 폼 */}
+              {/* 신규 유저 생성 폼 */}
               <div className="bg-gray-50 p-4 rounded-lg border">
                 <h4 className="font-semibold text-sm text-gray-700 mb-3">신규 유저 생성</h4>
                 <form onSubmit={handleCreateUser} className="flex gap-2">
@@ -571,16 +591,28 @@ export default function Home() {
                 </form>
               </div>
 
-              {/* 유저별 카테고리 접근 권한 목록 */}
+              {/* 유저 목록 및 권한 설정 / 삭제 버튼 */}
               <div>
-                <h4 className="font-semibold text-sm text-gray-700 mb-3">유저별 카테고리 열람 권한 관리</h4>
+                <h4 className="font-semibold text-sm text-gray-700 mb-3">등록된 유저 권한 및 삭제 관리</h4>
                 {usersList.length === 0 ? (
                   <p className="text-xs text-gray-400">등록된 유저가 없습니다.</p>
                 ) : (
                   <div className="space-y-4">
                     {usersList.map((usr) => (
                       <div key={usr.id} className="border rounded-lg p-3 bg-white">
-                        <div className="font-semibold text-sm text-indigo-900 mb-2">{usr.email}</div>
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="font-semibold text-sm text-indigo-900">{usr.email}</span>
+                          
+                          {/* ★ 유저 삭제 버튼 */}
+                          <button
+                            onClick={() => handleDeleteUser(usr.id, usr.email)}
+                            className="flex items-center gap-1 text-xs text-red-600 hover:bg-red-50 p-1 rounded transition"
+                            title="유저 삭제"
+                          >
+                            <UserX size={14} />
+                            <span>삭제</span>
+                          </button>
+                        </div>
                         <div className="flex flex-wrap gap-3">
                           {categories.map((cat) => {
                             const isChecked = (userPermissions[usr.id] || []).includes(cat.id);
