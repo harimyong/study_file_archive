@@ -66,7 +66,8 @@ export default function Home() {
 
     for (let i = 0; i < fileList.length; i++) {
       const file = fileList[i];
-      const filePath = `${selectedCategory.id}/${Date.now()}_${file.name}`;
+      const cleanFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const filePath = `${selectedCategory.id}/${Date.now()}_${cleanFileName}`;
       
       // contentType을 지정하여 MIME 타입 차단 우회 및 업로드 안전성 확보
       const { error: uploadError } = await supabase.storage
