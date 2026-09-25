@@ -423,7 +423,7 @@ const handleOpenPreview = async (file) => {
               {previewType === 'unsupported' && (
                 <div className="text-center p-8">
                   <p className="text-gray-600 mb-4">
-                    HWP / HWPX 파일은 웹 브라우저에서 직접 미리보기를 지원하지 않습니다.
+                    해당 파일은 웹 브라우저에서 직접 미리보기를 지원하지 않습니다.
                   </p>
                   <button
                     onClick={() => handleDownloadFile(previewFile.file_url, previewFile.file_name)}
