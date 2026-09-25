@@ -59,7 +59,7 @@ export default function Home() {
     setSelectedCategory(updated[0] || null);
   };
 
- const handleFileUpload = async (e) => {
+  const handleFileUpload = async (e) => {
     const fileList = e.target.files;
     if (!fileList || fileList.length === 0 || !selectedCategory) return;
     setUploading(true);
@@ -69,7 +69,6 @@ export default function Home() {
       const cleanFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
       const filePath = `${selectedCategory.id}/${Date.now()}_${cleanFileName}`;
       
-      // contentType을 지정하여 MIME 타입 차단 우회 및 업로드 안전성 확보
       const { error: uploadError } = await supabase.storage
         .from('study-files')
         .upload(filePath, file, {
@@ -94,6 +93,7 @@ export default function Home() {
         file_type: file.type || file.name.split('.').pop()
       }]);
     }
+
     fetchFiles(selectedCategory.id);
     setUploading(false);
   };
@@ -104,8 +104,12 @@ export default function Home() {
     setFiles(files.filter(f => f.id !== id));
   };
 
-  // 구글 문서 뷰어 주소 생성기
-  const getPreviewUrl = (fileUrl) => {
+  // 미리보기 주소 분기 처리 함수
+  const getPreviewUrl = (fileUrl, fileName) => {
+    const ext = fileName.split('.').pop().toLowerCase();
+    if (ext === 'html' || ext === 'htm') {
+      return fileUrl; // HTML 파일은 직접 렌더링
+    }
     return `https://docs.google.com/gview?url=${encodeURIComponent(fileUrl)}&embedded=true`;
   };
 
@@ -196,7 +200,7 @@ export default function Home() {
         )}
       </div>
 
-      {/* 구글 뷰어를 활용한 무결점 미리보기 모달 */}
+      {/* 미리보기 모달 */}
       {previewFile && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg w-full max-w-4xl h-5/6 flex flex-col p-4 shadow-xl">
@@ -207,7 +211,7 @@ export default function Home() {
               </button>
             </div>
             <iframe
-              src={getPreviewUrl(previewFile.file_url)}
+              src={getPreviewUrl(previewFile.file_url, previewFile.file_name)}
               className="w-full flex-1 border rounded bg-white"
             />
           </div>
