@@ -109,11 +109,44 @@ export default function Home() {
     setUploading(false);
   };
 
-  const handleDeleteFile = async (id) => {
-    if (!confirm('파일을 삭제하시겠습니까?')) return;
-    await supabase.from('files').delete().eq('id', id);
-    setFiles(files.filter(f => f.id !== id));
-  };
+  const handleDeleteFile = async (file) => {
+      if (!confirm('파일을 삭제하시겠습니까?')) return;
+  
+      try {
+        // 1. Storage 버킷 내부 파일 경로 추출 (file_url에서 스토리지 파일 경로 파싱)
+        // 예: .../study-files/카테고리ID/파일명 -> "카테고리ID/파일명" 추출
+        const urlParts = file.file_url.split('/study-files/');
+        if (urlParts.length > 1) {
+          const storagePath = decodeURIComponent(urlParts[1]);
+          
+          // 2. Supabase Storage에서 실제 파일 삭제
+          const { error: storageError } = await supabase.storage
+            .from('study-files')
+            .remove([storagePath]);
+  
+          if (storageError) {
+            console.error('Storage 파일 삭제 실패:', storageError);
+          }
+        }
+  
+        // 3. Supabase DB (files 테이블)에서 메타데이터 삭제
+        const { error: dbError } = await supabase
+          .from('files')
+          .delete()
+          .eq('id', file.id);
+  
+        if (dbError) {
+          alert('DB 삭제 실패: ' + dbError.message);
+          return;
+        }
+  
+        // 4. 화면 목록 업데이트
+        setFiles(files.filter(f => f.id !== file.id));
+      } catch (err) {
+        console.error('삭제 처리 중 오류:', err);
+        alert('파일 삭제에 실패했습니다.');
+      }
+    };
 
   // 강제 다운로드 처리
   const handleDownloadFile = async (fileUrl, fileName) => {
