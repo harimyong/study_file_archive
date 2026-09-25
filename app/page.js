@@ -36,7 +36,7 @@ export default function Home() {
   const [newUserPassword, setNewUserPassword] = useState('');
   const [userPermissions, setUserPermissions] = useState({});
 
-  // ★ 일반 ID를 Supabase 내부용 가상 이메일로 변환하는 헬퍼 함수
+  // 일반 ID를 Supabase 내부용 가상 이메일로 변환하는 헬퍼 함수
   const toVirtualEmail = (username) => {
     if (!username) return '';
     return username.includes('@') ? username.trim() : `${username.trim()}@archive.local`;
@@ -304,7 +304,7 @@ export default function Home() {
     fetchUsersAndPermissions();
   };
 
-  // ★ 유저 계정 생성 (독립 클라이언트로 관리자 세션 유지)
+  // 유저 계정 생성 (독립 클라이언트로 관리자 세션 유지)
   const handleCreateUser = async (e) => {
     e.preventDefault();
     if (!newUserEmail || !newUserPassword) return;
@@ -317,7 +317,6 @@ export default function Home() {
     const virtualEmail = toVirtualEmail(newUserEmail);
 
     try {
-      // 독립 클라이언트 인스턴스 생성 (관리자 세션 파괴 방지)
       const adminAuthClient = createClient(supabaseUrl, supabaseAnonKey, {
         auth: {
           persistSession: false,
@@ -394,7 +393,7 @@ export default function Home() {
   };
 
   // ----------------------------------------------------
-  // 🔒 로그인 화면 (관리자/유저 공통 아이디 방식)
+  // 🔒 로그인 화면 (Study File Archive 로고 적용)
   // ----------------------------------------------------
   if (!session) {
     return (
@@ -402,7 +401,7 @@ export default function Home() {
         <div className="bg-white p-8 rounded-xl shadow-md w-full max-w-md border">
           <div className="flex items-center justify-center space-x-2 text-indigo-600 mb-6">
             <HardDrive size={32} />
-            <h1 className="text-2xl font-bold">Cloud-Archive</h1>
+            <h1 className="text-2xl font-bold">Study File Archive</h1>
           </div>
           <p className="text-gray-500 text-center text-sm mb-6">서비스 이용을 위해 로그인해 주세요.</p>
           
@@ -444,16 +443,16 @@ export default function Home() {
   }
 
   // ----------------------------------------------------
-  // 💻 메인 서비스 화면
+  // 💻 메인 서비스 화면 (Study File Archive 로고 적용)
   // ----------------------------------------------------
   return (
     <div className="flex h-screen bg-gray-100 font-sans">
       {/* 사이드바 */}
       <div className="w-64 bg-white border-r p-4 flex flex-col justify-between">
         <div>
-          <div className="flex items-center space-x-2 text-indigo-600 mb-6 font-bold text-xl">
+          <div className="flex items-center space-x-2 text-indigo-600 mb-6 font-bold text-lg">
             <HardDrive />
-            <span>Cloud-Archive</span>
+            <span>Study File Archive</span>
           </div>
 
           {/* 관리자 전용: 새 카테고리 추가 */}
