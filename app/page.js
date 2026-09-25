@@ -358,10 +358,10 @@ export default function Home() {
     if (!confirm(`[${displayId}] 유저를 완전히 삭제하시겠습니까?\n삭제 후 해당 계정은 더 이상 접속할 수 없습니다.`)) return;
 
     try {
-      // 1. 카테고리 접근 권한 데이터 먼저 삭제
+      // 1. 카테고리 접근 권한 데이터 삭제
       await supabase.from('category_permissions').delete().eq('user_id', userId);
 
-      // 2. profiles 테이블에서 유저 프로필 완전히 삭제
+      // 2. profiles 데이터 삭제
       const { error } = await supabase.from('profiles').delete().eq('id', userId);
 
       if (error) {
@@ -369,8 +369,7 @@ export default function Home() {
         return;
       }
 
-      alert('유저가 DB에서 성공적으로 삭제되었습니다.');
-      // 3. 화면 UI 목록 업데이트
+      alert('유저가 성공적으로 삭제되었습니다.');
       setUsersList(usersList.filter(u => u.id !== userId));
 
     } catch (err) {
