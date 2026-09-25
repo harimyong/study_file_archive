@@ -115,6 +115,27 @@ export default function Home() {
     setFiles(files.filter(f => f.id !== id));
   };
 
+  // ★ 강제 파일 다운로드 함수 (새 창으로 넘어가지 않고 컴퓨터에 직접 다운로드)
+  const handleDownloadFile = async (fileUrl, fileName) => {
+    try {
+      const response = await fetch(fileUrl);
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = fileName; // 원본 한글 파일명 유지
+      document.body.appendChild(link);
+      link.click();
+      
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      // 오류 발생 시 대체 다운로드 시도
+      window.open(fileUrl, '_blank');
+    }
+  };
+
   // 미리보기 클릭 시 한글 인코딩 변환 처리
   const handleOpenPreview = async (file) => {
     setPreviewFile(file);
@@ -144,7 +165,6 @@ export default function Home() {
     }
   };
 
-  // PDF 및 기타 파일 미리보기 주소 처리 (PDF는 직접 열어 gview 다운로드 오류 방지)
   const getPreviewUrl = (fileUrl, fileName) => {
     const ext = fileName.split('.').pop().toLowerCase();
     if (ext === 'pdf' || ext === 'html' || ext === 'htm') {
@@ -229,9 +249,16 @@ export default function Home() {
                       <button onClick={() => handleOpenPreview(file)} className="p-1 text-gray-500 hover:text-indigo-600" title="미리보기">
                         <Eye size={16} />
                       </button>
-                      <a href={file.file_url} download target="_blank" rel="noreferrer" className="p-1 text-gray-500 hover:text-indigo-600" title="다운로드">
+                      
+                      {/* 강제 다운로드 함수 연결 */}
+                      <button 
+                        onClick={() => handleDownloadFile(file.file_url, file.file_name)} 
+                        className="p-1 text-gray-500 hover:text-indigo-600" 
+                        title="다운로드"
+                      >
                         <Download size={16} />
-                      </a>
+                      </button>
+
                       <button onClick={() => handleDeleteFile(file.id)} className="p-1 text-gray-500 hover:text-red-600" title="삭제">
                         <Trash2 size={16} />
                       </button>
@@ -258,14 +285,12 @@ export default function Home() {
             </div>
             
             {isHtml ? (
-              // HTML 파일: 디코딩된 텍스트를 srcDoc으로 직접 주입
               <iframe
                 srcDoc={htmlContent}
                 className="w-full flex-1 border rounded bg-white"
                 title="HTML Preview"
               />
             ) : (
-              // PDF 등 기타 파일: getPreviewUrl 함수를 거쳐 깔끔하게 표출
               <iframe
                 src={getPreviewUrl(previewFile.file_url, previewFile.file_name)}
                 className="w-full flex-1 border rounded bg-white"
