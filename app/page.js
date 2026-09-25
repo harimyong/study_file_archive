@@ -281,16 +281,18 @@ export default function Home() {
     fetchUsersAndPermissions();
   };
 
-  // 유저 계정 생성 (중복 체크 및 예외 처리 강화)
+// 유저 계정 생성 (관리자 세션 유지 보완)
   const handleCreateUser = async (e) => {
     e.preventDefault();
     if (!newUserEmail || !newUserPassword) return;
 
-    // 비밀번호 길이는 최소 6자리 이상 필요
     if (newUserPassword.length < 6) {
       alert('비밀번호는 최소 6자리 이상이어야 합니다.');
       return;
     }
+
+    // 현재 관리자의 세션 정보 백업
+    const currentAdminSession = session;
 
     const { data, error } = await supabase.auth.signUp({
       email: newUserEmail,
@@ -303,7 +305,6 @@ export default function Home() {
       return;
     }
 
-    // Supabase는 이미 있는 이메일일 경우 identities 배열이 비어서 반환됨
     if (data?.user && data.user.identities && data.user.identities.length === 0) {
       alert('이미 존재하거나 가입된 이메일 계정입니다.');
       return;
@@ -312,6 +313,15 @@ export default function Home() {
     alert(`[${newUserEmail}] 유저 계정이 성공적으로 생성되었습니다.`);
     setNewUserEmail('');
     setNewUserPassword('');
+
+    // ★ 유저가 생성되면서 관리자 로그아웃이 되는 현상을 막기 위해 세션 재설정
+    if (currentAdminSession) {
+      await supabase.auth.setSession({
+        access_token: currentAdminSession.access_token,
+        refresh_token: currentAdminSession.refresh_token,
+      });
+    }
+
     fetchUsersAndPermissions();
   };
 
