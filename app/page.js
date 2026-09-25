@@ -18,6 +18,8 @@ export default function Home() {
   
   // 미리보기 모달 상태
   const [previewFile, setPreviewFile] = useState(null);
+  const [htmlContent, setHtmlContent] = useState('');
+  const [isHtml, setIsHtml] = useState(false);
 
   useEffect(() => {
     fetchCategories();
@@ -71,6 +73,7 @@ export default function Home() {
       
       const ext = file.name.split('.').pop().toLowerCase();
       let customContentType = file.type || 'application/octet-stream';
+
       if (ext === 'html' || ext === 'htm') {
         customContentType = 'text/html; charset=utf-8';
       } else if (ext === 'txt' || ext === 'md') {
@@ -112,12 +115,45 @@ export default function Home() {
     setFiles(files.filter(f => f.id !== id));
   };
 
-  // 미리보기 주소 분기 처리
-  const getPreviewUrl = (fileUrl, fileName) => {
-    const ext = fileName.split('.').pop().toLowerCase();
+  // 미리보기 클릭 시 한글 인코딩 변환 처리
+  const handleOpenPreview = async (file) => {
+    setPreviewFile(file);
+    const ext = file.file_name.split('.').pop().toLowerCase();
+
     if (ext === 'html' || ext === 'htm') {
-      return fileUrl; // HTML 파일은 직접 랜더링
+      setIsHtml(true);
+      setHtmlContent('불러오는 중...');
+      try {
+        const res = await fetch(file.file_url);
+        const buffer = await res.arrayBuffer();
+        
+        // 1차 디코딩 (EUC-KR/CP949 디코딩으로 깨진 한글 자동 복원)
+        let decoder = new TextDecoder('euc-kr');
+        let text = decoder.decode(buffer);
+        
+        // 만약 1차 디코딩 후에도 깨짐 문자가 존재하면 UTF-8로 재시도
+        if (text.includes('')) {
+          text = new TextDecoder('utf-8').decode(buffer);
+        }
+        
+        setHtmlContent(text);
+      } catch (err) {
+        setHtmlContent('<p>파일 내용을 불러오지 못했습니다.</p>');
+      }
+    } else {
+      setIsHtml(false);
+      setHtmlContent('');
     }
+  };
+
+  const closePreview = () => {
+    setPreviewFile(null);
+    setIsHtml(false);
+    setHtmlContent('');
+  };
+
+  // 일반 파일용 (PDF 등) 미리보기 주소
+  const getPreviewUrl = (fileUrl) => {
     return `https://docs.google.com/gview?url=${encodeURIComponent(fileUrl)}&embedded=true`;
   };
 
@@ -188,7 +224,7 @@ export default function Home() {
                       </div>
                     </div>
                     <div className="flex justify-end space-x-2 border-t pt-2 mt-2">
-                      <button onClick={() => setPreviewFile(file)} className="p-1 text-gray-500 hover:text-indigo-600" title="미리보기">
+                      <button onClick={() => handleOpenPreview(file)} className="p-1 text-gray-500 hover:text-indigo-600" title="미리보기">
                         <Eye size={16} />
                       </button>
                       <a href={file.file_url} download target="_blank" rel="noreferrer" className="p-1 text-gray-500 hover:text-indigo-600" title="다운로드">
@@ -211,17 +247,28 @@ export default function Home() {
       {/* 미리보기 모달 */}
       {previewFile && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg w-full max-w-4xl h-5/6 flex flex-col p-4 shadow-xl">
+          <div className="bg-white rounded-lg w-full max-w-5xl h-5/6 flex flex-col p-4 shadow-xl">
             <div className="flex justify-between items-center mb-3 pb-2 border-b">
               <h3 className="font-bold text-gray-800 truncate">{previewFile.file_name} 미리보기</h3>
-              <button onClick={() => setPreviewFile(null)} className="text-gray-500 hover:text-black p-1">
+              <button onClick={closePreview} className="text-gray-500 hover:text-black p-1">
                 <X size={20} />
               </button>
             </div>
-            <iframe
-              src={getPreviewUrl(previewFile.file_url, previewFile.file_name)}
-              className="w-full flex-1 border rounded bg-white"
-            />
+            
+            {isHtml ? (
+              // HTML 파일일 경우: 디코딩된 바이너리 텍스트를 iframe (srcDoc)으로 직접 주입하여 웹 화면으로 렌더링
+              <iframe
+                srcDoc={htmlContent}
+                className="w-full flex-1 border rounded bg-white"
+                title="HTML Preview"
+              />
+            ) : (
+              // PDF 등 기타 파일일 경우: 구글 뷰어로 표시
+              <iframe
+                src={getPreviewUrl(previewFile.file_url)}
+                className="w-full flex-1 border rounded bg-white"
+              />
+            )}
           </div>
         </div>
       )}
