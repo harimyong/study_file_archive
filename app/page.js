@@ -127,11 +127,9 @@ export default function Home() {
         const res = await fetch(file.file_url);
         const buffer = await res.arrayBuffer();
         
-        // 1차 디코딩 (EUC-KR/CP949 디코딩으로 깨진 한글 자동 복원)
         let decoder = new TextDecoder('euc-kr');
         let text = decoder.decode(buffer);
         
-        // 만약 1차 디코딩 후에도 깨짐 문자가 존재하면 UTF-8로 재시도
         if (text.includes('')) {
           text = new TextDecoder('utf-8').decode(buffer);
         }
@@ -144,6 +142,15 @@ export default function Home() {
       setIsHtml(false);
       setHtmlContent('');
     }
+  };
+
+  const getPreviewUrl = (fileUrl, fileName) => {
+    const ext = fileName.split('.').pop().toLowerCase();
+    // PDF와 HTML은 구글 뷰어를 거치지 않고 원본 URL로 직접 열어 gview 다운로드 기록 방지
+    if (ext === 'pdf' || ext === 'html' || ext === 'htm') {
+      return fileUrl;
+    }
+    return `https://docs.google.com/gview?url=${encodeURIComponent(fileUrl)}&embedded=true`;
   };
 
   const closePreview = () => {
