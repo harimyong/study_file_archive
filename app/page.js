@@ -39,7 +39,7 @@ export default function Home() {
   // ★ 일반 ID를 Supabase 내부용 가상 이메일로 변환하는 헬퍼 함수
   const toVirtualEmail = (username) => {
     if (!username) return '';
-    return username.includes('@') ? username : `${username.trim()}@archive.local`;
+    return username.includes('@') ? username.trim() : `${username.trim()}@archive.local`;
   };
 
   // 1. 세션 확인 및 초기화
@@ -105,7 +105,7 @@ export default function Home() {
     if (data) setFiles(data);
   };
 
-  // 로그인 처리 (일반 ID 지원)
+  // 로그인 처리 (관리자/유저 통합 일반 ID 로그인)
   const handleLogin = async (e) => {
     e.preventDefault();
     setAuthError('');
@@ -223,7 +223,7 @@ export default function Home() {
     }
   };
 
-  // 파일 강제 다운로드 (새 창 이동 방지)
+  // 파일 강제 다운로드
   const handleDownloadFile = async (fileUrl, fileName) => {
     try {
       const response = await fetch(fileUrl);
@@ -241,7 +241,7 @@ export default function Home() {
     }
   };
 
-  // 모든 확장자 맞춤 미리보기 분기 로직
+  // 모든 확장자 맞춤 미리보기 분기
   const handleOpenPreview = async (file) => {
     setPreviewFile(file);
     const ext = file.file_name.split('.').pop().toLowerCase();
@@ -304,7 +304,7 @@ export default function Home() {
     fetchUsersAndPermissions();
   };
 
-  // 유저 계정 생성 (일반 ID 사용 및 세션 유지)
+  // ★ 유저 계정 생성 (독립 클라이언트로 관리자 세션 유지)
   const handleCreateUser = async (e) => {
     e.preventDefault();
     if (!newUserEmail || !newUserPassword) return;
@@ -314,40 +314,46 @@ export default function Home() {
       return;
     }
 
-    const currentAdminSession = session;
     const virtualEmail = toVirtualEmail(newUserEmail);
 
-    const { data, error } = await supabase.auth.signUp({
-      email: virtualEmail,
-      password: newUserPassword,
-      options: { data: { role: 'user' } }
-    });
-
-    if (error) {
-      alert('유저 생성 실패: ' + error.message);
-      return;
-    }
-
-    if (data?.user && data.user.identities && data.user.identities.length === 0) {
-      alert('이미 존재하거나 가입된 아이디입니다.');
-      return;
-    }
-
-    alert(`[${newUserEmail}] 유저 계정이 성공적으로 생성되었습니다.`);
-    setNewUserEmail('');
-    setNewUserPassword('');
-
-    if (currentAdminSession) {
-      await supabase.auth.setSession({
-        access_token: currentAdminSession.access_token,
-        refresh_token: currentAdminSession.refresh_token,
+    try {
+      // 독립 클라이언트 인스턴스 생성 (관리자 세션 파괴 방지)
+      const adminAuthClient = createClient(supabaseUrl, supabaseAnonKey, {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false,
+        },
       });
-    }
 
-    fetchUsersAndPermissions();
+      const { data, error } = await adminAuthClient.auth.signUp({
+        email: virtualEmail,
+        password: newUserPassword,
+        options: { data: { role: 'user' } }
+      });
+
+      if (error) {
+        alert('유저 생성 실패: ' + error.message);
+        return;
+      }
+
+      if (data?.user && data.user.identities && data.user.identities.length === 0) {
+        alert('이미 존재하거나 가입된 아이디입니다.');
+        return;
+      }
+
+      alert(`[${newUserEmail}] 유저 계정이 성공적으로 생성되었습니다.`);
+      setNewUserEmail('');
+      setNewUserPassword('');
+
+      fetchUsersAndPermissions();
+
+    } catch (err) {
+      console.error('유저 생성 오류:', err);
+      alert('유저 생성 처리 중 오류가 발생했습니다.');
+    }
   };
 
-  // 유저 계정 완전히 삭제
+  // 유저 계정 삭제
   const handleDeleteUser = async (userId, userEmail) => {
     const displayId = userEmail.replace('@archive.local', '');
     if (!confirm(`[${displayId}] 유저를 완전히 삭제하시겠습니까?\n삭제 후 해당 계정은 더 이상 접속할 수 없습니다.`)) return;
@@ -388,7 +394,7 @@ export default function Home() {
   };
 
   // ----------------------------------------------------
-  // 🔒 로그인 화면 (일반 ID 방식 적용)
+  // 🔒 로그인 화면 (관리자/유저 공통 아이디 방식)
   // ----------------------------------------------------
   if (!session) {
     return (
@@ -572,7 +578,7 @@ export default function Home() {
         )}
       </div>
 
-      {/* 종합 맞춤 미리보기 모달 */}
+      {/* 미리보기 모달 */}
       {previewFile && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg w-full max-w-5xl h-5/6 flex flex-col p-4 shadow-xl">
