@@ -16,11 +16,8 @@ export default function Home() {
   const [newCategoryName, setNewCategoryName] = useState('');
   const [uploading, setUploading] = useState(false);
   
-  // 미리보기 관련 상태
-  const [previewUrl, setPreviewUrl] = useState(null);
-  const [previewFileName, setPreviewFileName] = useState('');
-  const [textContent, setTextContent] = useState('');
-  const [isText, setIsText] = useState(false);
+  // 미리보기 모달 상태
+  const [previewFile, setPreviewFile] = useState(null);
 
   useEffect(() => {
     fetchCategories();
@@ -95,38 +92,9 @@ export default function Home() {
     setFiles(files.filter(f => f.id !== id));
   };
 
-  // 한글 깨짐 방지 미리보기 로직
-  const handlePreview = async (file) => {
-    const ext = file.file_name.split('.').pop().toLowerCase();
-    setPreviewFileName(file.file_name);
-    
-    if (['txt', 'md', 'json', 'js', 'css', 'html'].includes(ext)) {
-      setIsText(true);
-      setTextContent('파일을 읽어오는 중...');
-      try {
-        const res = await fetch(file.file_url);
-        const buffer = await res.arrayBuffer();
-        
-        // EUC-KR / UTF-8 인코딩 감지 및 변환
-        let text = new TextDecoder('utf-8').decode(buffer);
-        if (text.includes('')) {
-          text = new TextDecoder('euc-kr').decode(buffer);
-        }
-        setTextContent(text);
-      } catch (err) {
-        setTextContent('파일 내용을 읽어오지 못했습니다.');
-      }
-      setPreviewUrl(file.file_url);
-    } else {
-      setIsText(false);
-      setPreviewUrl(file.file_url);
-    }
-  };
-
-  const closePreview = () => {
-    setPreviewUrl(null);
-    setTextContent('');
-    setIsText(false);
+  // 구글 문서 뷰어 주소 생성기
+  const getPreviewUrl = (fileUrl) => {
+    return `https://docs.google.com/gview?url=${encodeURIComponent(fileUrl)}&embedded=true`;
   };
 
   return (
@@ -196,7 +164,7 @@ export default function Home() {
                       </div>
                     </div>
                     <div className="flex justify-end space-x-2 border-t pt-2 mt-2">
-                      <button onClick={() => handlePreview(file)} className="p-1 text-gray-500 hover:text-indigo-600" title="미리보기">
+                      <button onClick={() => setPreviewFile(file)} className="p-1 text-gray-500 hover:text-indigo-600" title="미리보기">
                         <Eye size={16} />
                       </button>
                       <a href={file.file_url} download target="_blank" rel="noreferrer" className="p-1 text-gray-500 hover:text-indigo-600" title="다운로드">
@@ -216,23 +184,20 @@ export default function Home() {
         )}
       </div>
 
-      {/* 개선된 한글 안깨지는 미리보기 모달 */}
-      {previewUrl && (
+      {/* 구글 뷰어를 활용한 무결점 미리보기 모달 */}
+      {previewFile && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg w-full max-w-4xl h-5/6 flex flex-col p-4 shadow-xl">
             <div className="flex justify-between items-center mb-3 pb-2 border-b">
-              <h3 className="font-bold text-gray-800 truncate">{previewFileName} 미리보기</h3>
-              <button onClick={closePreview} className="text-gray-500 hover:text-black p-1">
+              <h3 className="font-bold text-gray-800 truncate">{previewFile.file_name} 미리보기</h3>
+              <button onClick={() => setPreviewFile(null)} className="text-gray-500 hover:text-black p-1">
                 <X size={20} />
               </button>
             </div>
-            {isText ? (
-              <pre className="w-full flex-1 border p-4 rounded bg-gray-50 overflow-auto whitespace-pre-wrap font-mono text-sm leading-relaxed text-gray-800">
-                {textContent}
-              </pre>
-            ) : (
-              <iframe src={previewUrl} className="w-full flex-1 border rounded" />
-            )}
+            <iframe
+              src={getPreviewUrl(previewFile.file_url)}
+              className="w-full flex-1 border rounded bg-white"
+            />
           </div>
         </div>
       )}
