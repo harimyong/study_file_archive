@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { FolderPlus, Upload, FileText, Trash2, Download, Eye, HardDrive, X } from 'lucide-react';
+import { FolderPlus, Upload, FileText, Trash2, Download, Eye, HardDrive, X, Users, LogOut, ShieldCheck } from 'lucide-react';
 
 const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseUrl = rawUrl.replace(/\/rest\/v1\/?$/, '').replace(/\/$/, '');
@@ -10,41 +10,117 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export default function Home() {
+  // 인증 및 사용자 상태
+  const [session, setSession] = useState(null);
+  const [userProfile, setUserProfile] = useState(null);
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [authError, setAuthError] = useState('');
+
+  // 메인 데이터 상태
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [files, setFiles] = useState([]);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [uploading, setUploading] = useState(false);
-  
-  // 미리보기 모달 통합 상태
+
+  // 미리보기 모달 상태
   const [previewFile, setPreviewFile] = useState(null);
-  const [previewType, setPreviewType] = useState(''); // 'image' | 'html' | 'text' | 'pdf' | 'doc'
+  const [previewType, setPreviewType] = useState('');
   const [textContent, setTextContent] = useState('');
 
+  // 관리자 전용 - 유저 관리 모달 상태
+  const [showUserModal, setShowUserModal] = useState(false);
+  const [usersList, setUsersList] = useState([]);
+  const [newUserEmail, setNewUserEmail] = useState('');
+  const [newUserPassword, setNewUserPassword] = useState('');
+  const [userPermissions, setUserPermissions] = useState({}); // { userId: [categoryId1, categoryId2] }
+
+  // 1. 세션 확인 및 초기화
   useEffect(() => {
-    fetchCategories();
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      if (session) fetchUserProfile(session.user.id);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      if (session) fetchUserProfile(session.user.id);
+      else {
+        setUserProfile(null);
+        setCategories([]);
+        setFiles([]);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
+  // 2. 로그인 유저 프로필(역할) 조회
+  const fetchUserProfile = async (userId) => {
+    const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
+    if (data) {
+      setUserProfile(data);
+      fetchCategories(data);
+    }
+  };
+
+  // 3. 카테고리 목록 조회 (권한 필터링)
+  const fetchCategories = async (profile) => {
+    const { data: allCategories } = await supabase.from('categories').select('*').order('created_at', { ascending: true });
+    
+    if (!allCategories) return;
+
+    if (profile.role === 'admin') {
+      // 관리자는 모든 카테고리 조회
+      setCategories(allCategories);
+      if (allCategories.length > 0 && !selectedCategory) setSelectedCategory(allCategories[0]);
+    } else {
+      // 일반 유저는 허용된 카테고리만 조회
+      const { data: permData } = await supabase
+        .from('category_permissions')
+        .select('category_id')
+        .eq('user_id', profile.id);
+
+      const allowedIds = permData ? permData.map(p => p.category_id) : [];
+      const allowedCategories = allCategories.filter(c => allowedIds.includes(c.id));
+      
+      setCategories(allowedCategories);
+      if (allowedCategories.length > 0) setSelectedCategory(allowedCategories[0]);
+      else setSelectedCategory(null);
+    }
+  };
+
+  // 4. 파일 목록 조회
   useEffect(() => {
     if (selectedCategory) fetchFiles(selectedCategory.id);
   }, [selectedCategory]);
-
-  const fetchCategories = async () => {
-    const { data } = await supabase.from('categories').select('*').order('created_at', { ascending: true });
-    if (data) {
-      setCategories(data);
-      if (data.length > 0 && !selectedCategory) setSelectedCategory(data[0]);
-    }
-  };
 
   const fetchFiles = async (categoryId) => {
     const { data } = await supabase.from('files').select('*').eq('category_id', categoryId).order('created_at', { ascending: false });
     if (data) setFiles(data);
   };
 
+  // 로그인 처리
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setAuthError('');
+    const { error } = await supabase.auth.signInWithPassword({
+      email: loginEmail,
+      password: loginPassword,
+    });
+    if (error) setAuthError('로그인에 실패했습니다. 이메일과 비밀번호를 확인해 주세요.');
+  };
+
+  // 로그아웃 처리
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+  };
+
+  // 카테고리 생성 (관리자 전용)
   const handleCreateCategory = async (e) => {
     e.preventDefault();
-    if (!newCategoryName.trim()) return;
+    if (!newCategoryName.trim() || userProfile?.role !== 'admin') return;
     const { data } = await supabase.from('categories').insert([{ name: newCategoryName }]).select();
     if (data) {
       setCategories([...categories, data[0]]);
@@ -53,58 +129,33 @@ export default function Home() {
     }
   };
 
+  // 카테고리 삭제 (관리자 전용)
   const handleDeleteCategory = async (id) => {
-      if (!confirm('카테고리를 삭제하면 포함된 모든 파일과 정보가 완전히 삭제됩니다. 진행하시겠습니까?')) return;
-  
-      try {
-        // 1. 해당 카테고리에 속한 모든 파일 목록 DB에서 가져오기
-        const { data: categoryFiles } = await supabase
-          .from('files')
-          .select('*')
-          .eq('category_id', id);
-  
-        // 2. Supabase Storage에서 해당 카테고리의 실제 파일들 모두 삭제
-        if (categoryFiles && categoryFiles.length > 0) {
-          const storagePaths = categoryFiles.map((file) => {
-            const urlParts = file.file_url.split('/study-files/');
-            return urlParts.length > 1 ? decodeURIComponent(urlParts[1]) : null;
-          }).filter(Boolean);
-  
-          if (storagePaths.length > 0) {
-            const { error: storageError } = await supabase.storage
-              .from('study-files')
-              .remove(storagePaths);
-  
-            if (storageError) {
-              console.error('카테고리 파일 Storage 삭제 실패:', storageError);
-            }
-          }
-        }
-  
-        // 3. Supabase DB에서 카테고리 삭제 
-        // (테이블에 ON DELETE CASCADE가 설정되어 있어 files 테이블의 데이터도 자동 함께 삭제됨)
-        const { error: dbError } = await supabase
-          .from('categories')
-          .delete()
-          .eq('id', id);
-  
-        if (dbError) {
-          alert('DB 카테고리 삭제 실패: ' + dbError.message);
-          return;
-        }
-  
-        // 4. UI 상태 업데이트
-        const updated = categories.filter((c) => c.id !== id);
-        setCategories(updated);
-        setSelectedCategory(updated[0] || null);
-  
-      } catch (err) {
-        console.error('카테고리 삭제 중 오류 발생:', err);
-        alert('카테고리 삭제에 실패했습니다.');
-      }
-    };
+    if (userProfile?.role !== 'admin') return;
+    if (!confirm('카테고리를 삭제하면 포함된 모든 파일도 삭제됩니다. 진행하시겠습니까?')) return;
 
+    const { data: categoryFiles } = await supabase.from('files').select('*').eq('category_id', id);
+
+    if (categoryFiles && categoryFiles.length > 0) {
+      const storagePaths = categoryFiles.map(file => {
+        const urlParts = file.file_url.split('/study-files/');
+        return urlParts.length > 1 ? decodeURIComponent(urlParts[1]) : null;
+      }).filter(Boolean);
+
+      if (storagePaths.length > 0) {
+        await supabase.storage.from('study-files').remove(storagePaths);
+      }
+    }
+
+    await supabase.from('categories').delete().eq('id', id);
+    const updated = categories.filter((c) => c.id !== id);
+    setCategories(updated);
+    setSelectedCategory(updated[0] || null);
+  };
+
+  // 파일 업로드 (관리자 전용)
   const handleFileUpload = async (e) => {
+    if (userProfile?.role !== 'admin') return;
     const fileList = e.target.files;
     if (!fileList || fileList.length === 0 || !selectedCategory) return;
     setUploading(true);
@@ -117,25 +168,16 @@ export default function Home() {
       const ext = file.name.split('.').pop().toLowerCase();
       let customContentType = file.type || 'application/octet-stream';
 
-      if (ext === 'html' || ext === 'htm') {
-        customContentType = 'text/html; charset=utf-8';
-      } else if (ext === 'txt' || ext === 'md' || ext === 'json' || ext === 'js' || ext === 'css') {
-        customContentType = 'text/plain; charset=utf-8';
-      }
+      if (ext === 'html' || ext === 'htm') customContentType = 'text/html; charset=utf-8';
+      else if (['txt', 'md', 'json', 'js', 'css'].includes(ext)) customContentType = 'text/plain; charset=utf-8';
 
-      const { error: uploadError } = await supabase.storage
-        .from('study-files')
-        .upload(filePath, file, {
-          cacheControl: '3600',
-          upsert: true,
-          contentType: customContentType
-        });
+      const { error: uploadError } = await supabase.storage.from('study-files').upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: true,
+        contentType: customContentType
+      });
 
-      if (uploadError) {
-        console.error('업로드 실패 원인:', uploadError);
-        alert(`[${file.name}] 업로드 실패: ${uploadError.message}`);
-        continue;
-      }
+      if (uploadError) continue;
 
       const { data: urlData } = supabase.storage.from('study-files').getPublicUrl(filePath);
 
@@ -152,58 +194,31 @@ export default function Home() {
     setUploading(false);
   };
 
+  // 파일 삭제 (관리자 전용)
   const handleDeleteFile = async (file) => {
-      if (!confirm('파일을 삭제하시겠습니까?')) return;
-  
-      try {
-        // 1. Storage 버킷 내부 파일 경로 추출 (file_url에서 스토리지 파일 경로 파싱)
-        // 예: .../study-files/카테고리ID/파일명 -> "카테고리ID/파일명" 추출
-        const urlParts = file.file_url.split('/study-files/');
-        if (urlParts.length > 1) {
-          const storagePath = decodeURIComponent(urlParts[1]);
-          
-          // 2. Supabase Storage에서 실제 파일 삭제
-          const { error: storageError } = await supabase.storage
-            .from('study-files')
-            .remove([storagePath]);
-  
-          if (storageError) {
-            console.error('Storage 파일 삭제 실패:', storageError);
-          }
-        }
-  
-        // 3. Supabase DB (files 테이블)에서 메타데이터 삭제
-        const { error: dbError } = await supabase
-          .from('files')
-          .delete()
-          .eq('id', file.id);
-  
-        if (dbError) {
-          alert('DB 삭제 실패: ' + dbError.message);
-          return;
-        }
-  
-        // 4. 화면 목록 업데이트
-        setFiles(files.filter(f => f.id !== file.id));
-      } catch (err) {
-        console.error('삭제 처리 중 오류:', err);
-        alert('파일 삭제에 실패했습니다.');
-      }
-    };
+    if (userProfile?.role !== 'admin') return;
+    if (!confirm('파일을 삭제하시겠습니까?')) return;
 
-  // 강제 다운로드 처리
+    const urlParts = file.file_url.split('/study-files/');
+    if (urlParts.length > 1) {
+      await supabase.storage.from('study-files').remove([decodeURIComponent(urlParts[1])]);
+    }
+
+    await supabase.from('files').delete().eq('id', file.id);
+    setFiles(files.filter(f => f.id !== file.id));
+  };
+
+  // 파일 강제 다운로드
   const handleDownloadFile = async (fileUrl, fileName) => {
     try {
       const response = await fetch(fileUrl);
       const blob = await response.blob();
       const blobUrl = window.URL.createObjectURL(blob);
-      
       const link = document.createElement('a');
       link.href = blobUrl;
       link.download = fileName;
       document.body.appendChild(link);
       link.click();
-      
       document.body.removeChild(link);
       window.URL.revokeObjectURL(blobUrl);
     } catch (error) {
@@ -211,72 +226,157 @@ export default function Home() {
     }
   };
 
-const handleOpenPreview = async (file) => {
+  // 미리보기 열기
+  const handleOpenPreview = async (file) => {
     setPreviewFile(file);
     const ext = file.file_name.split('.').pop().toLowerCase();
 
-    // 1. 이미지 확장자
     if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp'].includes(ext)) {
       setPreviewType('image');
-    } 
-    // 2. HTML 확장자
-    else if (['html', 'htm'].includes(ext)) {
+    } else if (['html', 'htm'].includes(ext)) {
       setPreviewType('html');
-      setTextContent('불러오는 중...');
       try {
         const res = await fetch(file.file_url);
         const buffer = await res.arrayBuffer();
-        let decoder = new TextDecoder('euc-kr');
-        let text = decoder.decode(buffer);
-        if (text.includes('')) {
-          text = new TextDecoder('utf-8').decode(buffer);
-        }
+        let text = new TextDecoder('euc-kr').decode(buffer);
+        if (text.includes('')) text = new TextDecoder('utf-8').decode(buffer);
         setTextContent(text);
       } catch (err) {
-        setTextContent('<p>파일 내용을 불러오지 못했습니다.</p>');
+        setTextContent('<p>파일을 읽어올 수 없습니다.</p>');
       }
-    } 
-    // 3. 텍스트 및 코드 파일 (한글 깨짐 자동 판별 디코딩)
-    else if (['txt', 'md', 'json', 'js', 'css', 'py', 'java', 'c', 'cpp'].includes(ext)) {
+    } else if (['txt', 'md', 'json', 'js', 'css', 'py', 'java', 'c'].includes(ext)) {
       setPreviewType('text');
-      setTextContent('텍스트를 읽어오는 중...');
       try {
         const res = await fetch(file.file_url);
         const buffer = await res.arrayBuffer();
-        
-        // 1차 EUC-KR 디코딩 시도
-        let decoder = new TextDecoder('euc-kr');
-        let text = decoder.decode(buffer);
-        
-        // 깨짐 문자()가 보이면 UTF-8로 재시도
-        if (text.includes('')) {
-          text = new TextDecoder('utf-8').decode(buffer);
-        }
+        let text = new TextDecoder('utf-8').decode(buffer);
+        if (text.includes('')) text = new TextDecoder('euc-kr').decode(buffer);
         setTextContent(text);
       } catch (err) {
-        setTextContent('파일을 읽는 중 에러가 발생했습니다.');
+        setTextContent('파일을 읽어올 수 없습니다.');
       }
-    } 
-    // 4. PDF 문서
-    else if (ext === 'pdf') {
+    } else if (ext === 'pdf') {
       setPreviewType('pdf');
-    } 
-    // HWP, HWPX, PPTX 등 미리보기 불가능 포맷 분기
-    else if (['hwp', 'hwpx', 'zip', 'exe'].includes(ext)) {
-      setPreviewType('unsupported');
-    }
-    // 5. 기타 문서 (PPTX, DOCX, XLSX 등)
-    else {
+    } else {
       setPreviewType('doc');
     }
   };
 
-  const closePreview = () => {
-    setPreviewFile(null);
-    setPreviewType('');
-    setTextContent('');
+  // 관리자 모달 - 유저 및 권한 목록 조회
+  const fetchUsersAndPermissions = async () => {
+    const { data: profilesData } = await supabase.from('profiles').select('*').eq('role', 'user');
+    if (profilesData) setUsersList(profilesData);
+
+    const { data: permData } = await supabase.from('category_permissions').select('*');
+    if (permData) {
+      const permMap = {};
+      permData.forEach(p => {
+        if (!permMap[p.user_id]) permMap[p.user_id] = [];
+        permMap[p.user_id].push(p.category_id);
+      });
+      setUserPermissions(permMap);
+    }
   };
 
+  const handleOpenUserModal = () => {
+    setShowUserModal(true);
+    fetchUsersAndPermissions();
+  };
+
+  // 유저 계정 생성 (관리자 모달)
+  const handleCreateUser = async (e) => {
+    e.preventDefault();
+    if (!newUserEmail || !newUserPassword) return;
+
+    const { error } = await supabase.auth.signUp({
+      email: newUserEmail,
+      password: newUserPassword,
+      options: { data: { role: 'user' } }
+    });
+
+    if (error) {
+      alert('유저 생성 실패: ' + error.message);
+    } else {
+      alert(`[${newUserEmail}] 유저 계정이 성공적으로 생성되었습니다.`);
+      setNewUserEmail('');
+      setNewUserPassword('');
+      fetchUsersAndPermissions();
+    }
+  };
+
+  // 카테고리 권한 토글 체크박스 (관리자 모달)
+  const handleTogglePermission = async (userId, categoryId) => {
+    const currentPerms = userPermissions[userId] || [];
+    const hasPerm = currentPerms.includes(categoryId);
+
+    if (hasPerm) {
+      await supabase.from('category_permissions').delete().eq('user_id', userId).eq('category_id', categoryId);
+      setUserPermissions({
+        ...userPermissions,
+        [userId]: currentPerms.filter(id => id !== categoryId)
+      });
+    } else {
+      await supabase.from('category_permissions').insert([{ user_id: userId, category_id: categoryId }]);
+      setUserPermissions({
+        ...userPermissions,
+        [userId]: [...currentPerms, categoryId]
+      });
+    }
+  };
+
+  // ----------------------------------------------------
+  // 🔒 로그인하지 않은 경우 로그인 화면 표출
+  // ----------------------------------------------------
+  if (!session) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-100 font-sans">
+        <div className="bg-white p-8 rounded-xl shadow-md w-full max-w-md border">
+          <div className="flex items-center justify-center space-x-2 text-indigo-600 mb-6">
+            <HardDrive size={32} />
+            <h1 className="text-2xl font-bold">Cloud-Archive</h1>
+          </div>
+          <p className="text-gray-500 text-center text-sm mb-6">서비스 이용을 위해 로그인해 주세요.</p>
+          
+          {authError && <div className="bg-red-50 text-red-600 text-sm p-3 rounded mb-4">{authError}</div>}
+
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">이메일 (ID)</label>
+              <input
+                type="email"
+                required
+                value={loginEmail}
+                onChange={(e) => setLoginEmail(e.target.value)}
+                placeholder="example@email.com"
+                className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">비밀번호</label>
+              <input
+                type="password"
+                required
+                value={loginPassword}
+                onChange={(e) => setLoginPassword(e.target.value)}
+                placeholder="••••••••"
+                className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+              />
+            </div>
+            <button
+              type="submit"
+              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-lg font-medium text-sm transition"
+            >
+              로그인
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  // ----------------------------------------------------
+  // 💻 메인 서비스 화면
+  // ----------------------------------------------------
   return (
     <div className="flex h-screen bg-gray-100 font-sans">
       {/* 사이드바 */}
@@ -284,20 +384,26 @@ const handleOpenPreview = async (file) => {
         <div>
           <div className="flex items-center space-x-2 text-indigo-600 mb-6 font-bold text-xl">
             <HardDrive />
-            <span>Study File Archive</span>
+            <span>Cloud-Archive</span>
           </div>
-          <form onSubmit={handleCreateCategory} className="mb-4 flex gap-1">
-            <input
-              type="text"
-              placeholder="새 카테고리..."
-              value={newCategoryName}
-              onChange={(e) => setNewCategoryName(e.target.value)}
-              className="w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-indigo-500"
-            />
-            <button type="submit" className="bg-indigo-600 text-white p-1 rounded hover:bg-indigo-700">
-              <FolderPlus size={18} />
-            </button>
-          </form>
+
+          {/* 관리자 전용: 새 카테고리 추가 */}
+          {userProfile?.role === 'admin' && (
+            <form onSubmit={handleCreateCategory} className="mb-4 flex gap-1">
+              <input
+                type="text"
+                placeholder="새 카테고리..."
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+                className="w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+              <button type="submit" className="bg-indigo-600 text-white p-1 rounded hover:bg-indigo-700">
+                <FolderPlus size={18} />
+              </button>
+            </form>
+          )}
+
+          {/* 카테고리 목록 */}
           <div className="space-y-1">
             {categories.map((cat) => (
               <div
@@ -308,10 +414,40 @@ const handleOpenPreview = async (file) => {
                 }`}
               >
                 <span className="truncate">📁 {cat.name}</span>
-                <Trash2 size={14} className="opacity-0 group-hover:opacity-100 hover:text-red-500" onClick={(e) => { e.stopPropagation(); handleDeleteCategory(cat.id); }} />
+                {userProfile?.role === 'admin' && (
+                  <Trash2 size={14} className="opacity-0 group-hover:opacity-100 hover:text-red-500" onClick={(e) => { e.stopPropagation(); handleDeleteCategory(cat.id); }} />
+                )}
               </div>
             ))}
           </div>
+        </div>
+
+        {/* 사이드바 하단 프로필 및 관리 기능 */}
+        <div className="border-t pt-4 space-y-2">
+          <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
+            <span className="truncate font-medium">{session.user.email}</span>
+            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${userProfile?.role === 'admin' ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-600'}`}>
+              {userProfile?.role === 'admin' ? '관리자' : '유저'}
+            </span>
+          </div>
+
+          {userProfile?.role === 'admin' && (
+            <button
+              onClick={handleOpenUserModal}
+              className="w-full flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 py-1.5 rounded text-xs font-medium"
+            >
+              <Users size={14} />
+              <span>유저 및 권한 관리</span>
+            </button>
+          )}
+
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center justify-center gap-2 bg-red-50 hover:bg-red-100 text-red-600 py-1.5 rounded text-xs font-medium"
+          >
+            <LogOut size={14} />
+            <span>로그아웃</span>
+          </button>
         </div>
       </div>
 
@@ -321,11 +457,15 @@ const handleOpenPreview = async (file) => {
           <div>
             <div className="flex justify-between items-center mb-6">
               <h1 className="text-2xl font-bold text-gray-800">{selectedCategory.name}</h1>
-              <label className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg cursor-pointer text-sm font-medium">
-                <Upload size={16} />
-                <span>{uploading ? '업로드 중...' : '파일 업로드'}</span>
-                <input type="file" multiple onChange={handleFileUpload} className="hidden" disabled={uploading} />
-              </label>
+              
+              {/* 관리자 전용: 업로드 버튼 */}
+              {userProfile?.role === 'admin' && (
+                <label className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg cursor-pointer text-sm font-medium">
+                  <Upload size={16} />
+                  <span>{uploading ? '업로드 중...' : '파일 업로드'}</span>
+                  <input type="file" multiple onChange={handleFileUpload} className="hidden" disabled={uploading} />
+                </label>
+              )}
             </div>
 
             {files.length === 0 ? (
@@ -350,9 +490,12 @@ const handleOpenPreview = async (file) => {
                       <button onClick={() => handleDownloadFile(file.file_url, file.file_name)} className="p-1 text-gray-500 hover:text-indigo-600" title="다운로드">
                         <Download size={16} />
                       </button>
-                      <button onClick={() => handleDeleteFile(file)} className="p-1 text-gray-500 hover:text-red-600" title="삭제">
-                        <Trash2 size={16} />
-                      </button>
+                      {/* 관리자 전용: 파일 삭제 */}
+                      {userProfile?.role === 'admin' && (
+                        <button onClick={() => handleDeleteFile(file)} className="p-1 text-gray-500 hover:text-red-600" title="삭제">
+                          <Trash2 size={16} />
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -360,79 +503,105 @@ const handleOpenPreview = async (file) => {
             )}
           </div>
         ) : (
-          <div className="text-center py-20 text-gray-400">사이드바에서 카테고리를 선택하거나 생성해 주세요.</div>
+          <div className="text-center py-20 text-gray-400">
+            {categories.length === 0 ? '접근 가능한 카테고리가 없습니다.' : '사이드바에서 카테고리를 선택해 주세요.'}
+          </div>
         )}
       </div>
 
-      {/* 종합 맞춤 미리보기 모달 */}
+      {/* 미리보기 모달 */}
       {previewFile && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg w-full max-w-5xl h-5/6 flex flex-col p-4 shadow-xl">
             <div className="flex justify-between items-center mb-3 pb-2 border-b">
               <h3 className="font-bold text-gray-800 truncate">{previewFile.file_name} 미리보기</h3>
-              <button onClick={closePreview} className="text-gray-500 hover:text-black p-1">
+              <button onClick={() => setPreviewFile(null)} className="text-gray-500 hover:text-black p-1">
                 <X size={20} />
               </button>
             </div>
-            
             <div className="flex-1 w-full overflow-auto flex items-center justify-center bg-gray-50 border rounded">
-              {/* 1. 이미지 미리보기 */}
-              {previewType === 'image' && (
-                <img
-                  src={previewFile.file_url}
-                  alt={previewFile.file_name}
-                  className="max-w-full max-h-full object-contain"
-                />
-              )}
+              {previewType === 'image' && <img src={previewFile.file_url} alt={previewFile.file_name} className="max-w-full max-h-full object-contain" />}
+              {previewType === 'html' && <iframe srcDoc={textContent} className="w-full h-full bg-white border-0" title="HTML Preview" />}
+              {previewType === 'text' && <pre className="w-full h-full p-4 overflow-auto whitespace-pre-wrap font-sans text-sm text-gray-800 bg-white">{textContent}</pre>}
+              {previewType === 'pdf' && <iframe src={previewFile.file_url} className="w-full h-full border-0" title="PDF Preview" />}
+              {previewType === 'doc' && <iframe src={`https://docs.google.com/gview?url=${encodeURIComponent(previewFile.file_url)}&embedded=true`} className="w-full h-full border-0" title="Doc Preview" />}
+            </div>
+          </div>
+        </div>
+      )}
 
-              {/* 2. HTML 웹페이지 직접 렌더링 */}
-              {previewType === 'html' && (
-                <iframe
-                  srcDoc={textContent}
-                  className="w-full h-full bg-white border-0"
-                  title="HTML Preview"
-                />
-              )}
+      {/* 관리자 전용: 유저 생성 및 카테고리 권한 설정 모달 */}
+      {showUserModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg w-full max-w-3xl max-h-[85vh] flex flex-col p-6 shadow-xl overflow-hidden">
+            <div className="flex justify-between items-center pb-3 border-b mb-4">
+              <div className="flex items-center gap-2 text-indigo-600 font-bold text-lg">
+                <ShieldCheck />
+                <span>유저 계정 생성 및 카테고리 접근 권한 설정</span>
+              </div>
+              <button onClick={() => setShowUserModal(false)} className="text-gray-500 hover:text-black">
+                <X size={20} />
+              </button>
+            </div>
 
-              {/* 3. 텍스트 / 코드 파일 직접 표출 */}
-              {previewType === 'text' && (
-                <pre className="w-full h-full p-4 overflow-auto whitespace-pre-wrap font-sans text-sm leading-relaxed text-gray-800 bg-white border-0">
-                  {textContent}
-                </pre>
-              )}
-
-              {/* 4. PDF 브라우저 직접 렌더링 */}
-              {previewType === 'pdf' && (
-                <iframe
-                  src={previewFile.file_url}
-                  className="w-full h-full border-0"
-                  title="PDF Preview"
-                />
-              )}
-
-              {/* 5. PPTX / DOCX 등 일반 문서 (구글 뷰어) */}
-              {previewType === 'doc' && (
-                <iframe
-                  src={`https://docs.google.com/gview?url=${encodeURIComponent(previewFile.file_url)}&embedded=true`}
-                  className="w-full h-full border-0"
-                  title="Doc Preview"
-                />
-              )}
-                    
-              {/* 미리보기 미지원 파일 (HWP, HWPX 등) 처리 */}
-              {previewType === 'unsupported' && (
-                <div className="text-center p-8">
-                  <p className="text-gray-600 mb-4">
-                    해당 파일은 웹 브라우저에서 직접 미리보기를 지원하지 않습니다.
-                  </p>
-                  <button
-                    onClick={() => handleDownloadFile(previewFile.file_url, previewFile.file_name)}
-                    className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 font-medium"
-                  >
-                    파일 다운로드하여 열기
+            <div className="overflow-y-auto flex-1 space-y-6 pr-2">
+              {/* 유저 생성 폼 */}
+              <div className="bg-gray-50 p-4 rounded-lg border">
+                <h4 className="font-semibold text-sm text-gray-700 mb-3">신규 유저 생성</h4>
+                <form onSubmit={handleCreateUser} className="flex gap-2">
+                  <input
+                    type="email"
+                    required
+                    placeholder="유저 이메일 (ID)"
+                    value={newUserEmail}
+                    onChange={(e) => setNewUserEmail(e.target.value)}
+                    className="flex-1 px-3 py-1.5 text-sm border rounded"
+                  />
+                  <input
+                    type="password"
+                    required
+                    placeholder="비밀번호"
+                    value={newUserPassword}
+                    onChange={(e) => setNewUserPassword(e.target.value)}
+                    className="flex-1 px-3 py-1.5 text-sm border rounded"
+                  />
+                  <button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-1.5 rounded text-sm font-medium">
+                    생성
                   </button>
-                </div>
-              )}
+                </form>
+              </div>
+
+              {/* 유저별 카테고리 접근 권한 목록 */}
+              <div>
+                <h4 className="font-semibold text-sm text-gray-700 mb-3">유저별 카테고리 열람 권한 관리</h4>
+                {usersList.length === 0 ? (
+                  <p className="text-xs text-gray-400">등록된 유저가 없습니다.</p>
+                ) : (
+                  <div className="space-y-4">
+                    {usersList.map((usr) => (
+                      <div key={usr.id} className="border rounded-lg p-3 bg-white">
+                        <div className="font-semibold text-sm text-indigo-900 mb-2">{usr.email}</div>
+                        <div className="flex flex-wrap gap-3">
+                          {categories.map((cat) => {
+                            const isChecked = (userPermissions[usr.id] || []).includes(cat.id);
+                            return (
+                              <label key={cat.id} className="flex items-center gap-1.5 text-xs text-gray-700 cursor-pointer bg-gray-50 px-2 py-1 rounded border">
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={() => handleTogglePermission(usr.id, cat.id)}
+                                  className="rounded text-indigo-600 focus:ring-indigo-500"
+                                />
+                                <span>{cat.name}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
