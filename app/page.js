@@ -284,7 +284,7 @@ const handleOpenPreview = async (file) => {
         <div>
           <div className="flex items-center space-x-2 text-indigo-600 mb-6 font-bold text-xl">
             <HardDrive />
-            <span>Cloud-Archive</span>
+            <span>Study File Archive</span>
           </div>
           <form onSubmit={handleCreateCategory} className="mb-4 flex gap-1">
             <input
