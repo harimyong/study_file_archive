@@ -307,7 +307,7 @@ const handleOpenPreview = async (file) => {
                       <button onClick={() => handleDownloadFile(file.file_url, file.file_name)} className="p-1 text-gray-500 hover:text-indigo-600" title="다운로드">
                         <Download size={16} />
                       </button>
-                      <button onClick={() => handleDeleteFile(file.id)} className="p-1 text-gray-500 hover:text-red-600" title="삭제">
+                      <button onClick={() => handleDeleteFile(file)} className="p-1 text-gray-500 hover:text-red-600" title="삭제">
                         <Trash2 size={16} />
                       </button>
                     </div>
