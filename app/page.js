@@ -185,6 +185,10 @@ const handleOpenPreview = async (file) => {
     else if (ext === 'pdf') {
       setPreviewType('pdf');
     } 
+    // HWP, HWPX, PPTX 등 미리보기 불가능 포맷 분기
+    else if (['hwp', 'hwpx', 'zip', 'exe'].includes(ext)) {
+      setPreviewType('unsupported');
+    }
     // 5. 기타 문서 (PPTX, DOCX, XLSX 등)
     else {
       setPreviewType('doc');
@@ -337,6 +341,21 @@ const handleOpenPreview = async (file) => {
                   className="w-full h-full border-0"
                   title="Doc Preview"
                 />
+              )}
+                    
+              {/* 미리보기 미지원 파일 (HWP, HWPX 등) 처리 */}
+              {previewType === 'unsupported' && (
+                <div className="text-center p-8">
+                  <p className="text-gray-600 mb-4">
+                    HWP / HWPX 파일은 웹 브라우저에서 직접 미리보기를 지원하지 않습니다.
+                  </p>
+                  <button
+                    onClick={() => handleDownloadFile(previewFile.file_url, previewFile.file_name)}
+                    className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 font-medium"
+                  >
+                    파일 다운로드하여 열기
+                  </button>
+                </div>
               )}
             </div>
           </div>
