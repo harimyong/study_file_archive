@@ -1,13 +1,14 @@
 'use client';
 import { useState, useEffect } from 'react';
+// 올바른 상대 경로 (./lib/supabaseClient)
 import { supabase, supabaseUrl, supabaseAnonKey } from './lib/supabaseClient';
 
-// 외부로 분리된 액션 함수들 import
+// 외부 액션 모듈 불러오기
 import { fetchCategories, handleCreateCategory, handleDeleteCategory } from './lib/categoryActions';
 import { fetchUsersAndPermissions, handleCreateUser, handleDeleteUser, handleTogglePermission } from './lib/userActions';
 import { fetchFiles, handleFileUpload, handleDeleteFile, handleDownloadFile, handleOpenPreview } from './lib/fileActions';
 
-// UI 컴포넌트 import
+// UI 컴포넌트 불러오기
 import LoginView from './components/LoginView';
 import CategorySidebar from './components/CategorySidebar';
 import FileViewer from './components/FileViewer';
