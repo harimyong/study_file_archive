@@ -1,5 +1,5 @@
 'use client';
-import { HardDrive, FolderPlus, Trash2, Users, LogOut } from 'lucide-react';
+import { HardDrive, FolderPlus, Trash2, Users, LogOut, Folder, X } from 'lucide-react';
 
 export default function CategorySidebar({
   categories,
@@ -13,49 +13,93 @@ export default function CategorySidebar({
   onDeleteCategory,
   onOpenUserModal,
   onLogout,
+  isMobileOpen,
+  onCloseMobile
 }) {
+  // 현재 위치(selectedCategory)의 직접적인 하위 폴더들만 필터링
+  const currentSubFolders = categories.filter(
+    (cat) => cat.parent_id === (selectedCategory ? selectedCategory.id : null)
+  );
+
   return (
-    <div className="w-64 bg-white border-r p-4 flex flex-col justify-between h-full">
+    <div
+      className={`${
+        isMobileOpen ? 'block' : 'hidden'
+      } md:block w-full md:w-64 bg-white border-r p-4 flex flex-col justify-between h-full fixed md:static inset-y-0 left-0 z-30 transition-all`}
+    >
       <div>
-        {/* 서비스 로고 */}
-        <div className="flex items-center space-x-2 text-indigo-600 mb-6 font-bold text-lg">
-          <HardDrive />
-          <span>Study File Archive</span>
+        {/* 상단 헤더 & 모바일 닫기 */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center space-x-2 text-indigo-600 font-bold text-lg">
+            <HardDrive />
+            <span>Study File Archive</span>
+          </div>
+          <button onClick={onCloseMobile} className="md:hidden text-gray-500 hover:text-black">
+            <X size={20} />
+          </button>
         </div>
 
-        {/* 관리자 전용: 새 카테고리 추가 */}
+        {/* 새 폴더/하위 폴더 추가 폼 */}
         {userProfile?.role === 'admin' && (
           <form onSubmit={onCreateCategory} className="mb-4 flex gap-1">
             <input
               type="text"
-              placeholder="새 카테고리..."
+              placeholder={
+                selectedCategory ? `'${selectedCategory.name}' 하위 폴더...` : '최상위 카테고리...'
+              }
               value={newCategoryName}
               onChange={(e) => setNewCategoryName(e.target.value)}
               className="w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-indigo-500"
             />
-            <button type="submit" className="bg-indigo-600 text-white p-1 rounded hover:bg-indigo-700">
+            <button
+              type="submit"
+              className="bg-indigo-600 text-white p-1 rounded hover:bg-indigo-700 flex-shrink-0"
+              title="폴더 생성"
+            >
               <FolderPlus size={18} />
             </button>
           </form>
         )}
 
-        {/* 카테고리 목록 */}
-        <div className="space-y-1">
-          {categories.map((cat) => (
+        {/* 폴더 탐색 트리가 표시되는 영역 */}
+        <div className="space-y-1 overflow-y-auto max-h-[calc(100vh-250px)]">
+          {/* 최상위 루트 버튼 */}
+          <div
+            onClick={() => {
+              onSelectCategory(null);
+              onCloseMobile();
+            }}
+            className={`flex items-center p-2 rounded cursor-pointer text-sm ${
+              selectedCategory === null
+                ? 'bg-indigo-50 text-indigo-700 font-semibold'
+                : 'text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            <Folder size={16} className="mr-2 text-amber-500" />
+            <span>최상위 (루트)</span>
+          </div>
+
+          {/* 현재 폴더 내의 하위 폴더 목록 */}
+          {currentSubFolders.map((cat) => (
             <div
               key={cat.id}
-              onClick={() => onSelectCategory(cat)}
+              onClick={() => {
+                onSelectCategory(cat);
+                onCloseMobile();
+              }}
               className={`flex items-center justify-between p-2 rounded cursor-pointer text-sm group ${
                 selectedCategory?.id === cat.id
                   ? 'bg-indigo-50 text-indigo-700 font-semibold'
                   : 'text-gray-600 hover:bg-gray-50'
               }`}
             >
-              <span className="truncate">📁 {cat.name}</span>
+              <span className="truncate flex items-center gap-1">
+                📁 {cat.name}
+              </span>
               {userProfile?.role === 'admin' && (
                 <Trash2
                   size={14}
-                  className="opacity-0 group-hover:opacity-100 hover:text-red-500"
+                  className="opacity-0 group-hover:opacity-100 hover:text-red-500 transition-opacity"
                   onClick={(e) => {
                     e.stopPropagation();
                     onDeleteCategory(cat.id);
@@ -67,8 +111,8 @@ export default function CategorySidebar({
         </div>
       </div>
 
-      {/* 사이드바 하단: 사용자 정보, 유저 관리 모달 열기, 로그아웃 */}
-      <div className="border-t pt-4 space-y-2">
+      {/* 사용자 프로필 및 계정 관리 */}
+      <div className="border-t pt-4 space-y-2 bg-white">
         <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
           <span className="truncate font-medium">
             {session?.user?.email?.replace('@archive.local', '')}

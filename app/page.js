@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { supabase, supabaseUrl, supabaseAnonKey } from './lib/supabaseClient';
+import { Menu } from 'lucide-react';
 
 // 외부 액션 모듈 불러오기
 import { fetchCategories, handleCreateCategory, handleDeleteCategory } from './lib/categoryActions';
@@ -36,6 +37,9 @@ export default function Home() {
   const [newUserPassword, setNewUserPassword] = useState('');
   const [userPermissions, setUserPermissions] = useState({});
 
+  // 모바일 사이드바 열림/닫힘 토글 상태 추가
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
@@ -65,6 +69,7 @@ export default function Home() {
 
   useEffect(() => {
     if (selectedCategory) fetchFiles(selectedCategory.id, setFiles);
+    else setFiles([]);
   }, [selectedCategory]);
 
   const handleLogin = async (e) => {
@@ -93,7 +98,19 @@ export default function Home() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-100 font-sans">
+    <div className="flex flex-col md:flex-row h-screen bg-gray-100 font-sans overflow-hidden">
+      {/* 모바일 최상단 토글 헤더 */}
+      <div className="md:hidden bg-white border-b px-4 py-3 flex items-center justify-between z-20">
+        <span className="font-bold text-indigo-600">Study File Archive</span>
+        <button
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          className="p-1 text-gray-600 hover:text-indigo-600 focus:outline-none"
+        >
+          <Menu size={24} />
+        </button>
+      </div>
+
+      {/* 반응형 사이드바 컴포넌트 */}
       <CategorySidebar
         categories={categories}
         selectedCategory={selectedCategory}
@@ -102,15 +119,18 @@ export default function Home() {
         session={session}
         newCategoryName={newCategoryName}
         setNewCategoryName={setNewCategoryName}
-        onCreateCategory={(e) => handleCreateCategory(e, newCategoryName, userProfile, categories, setCategories, setSelectedCategory, setNewCategoryName)}
+        onCreateCategory={(e) => handleCreateCategory(e, newCategoryName, selectedCategory, userProfile, categories, setCategories, setNewCategoryName)}
         onDeleteCategory={(id) => handleDeleteCategory(id, userProfile, categories, setCategories, setSelectedCategory)}
         onOpenUserModal={() => {
           setShowUserModal(true);
           fetchUsersAndPermissions(setUsersList, setUserPermissions);
         }}
         onLogout={() => supabase.auth.signOut()}
+        isMobileOpen={isMobileMenuOpen}
+        onCloseMobile={() => setIsMobileMenuOpen(false)}
       />
 
+      {/* 파일 뷰어 컴포넌트 */}
       <FileViewer
         selectedCategory={selectedCategory}
         userProfile={userProfile}
@@ -125,8 +145,10 @@ export default function Home() {
         textContent={textContent}
         onOpenPreview={(file) => handleOpenPreview(file, setPreviewFile, setPreviewType, setTextContent)}
         onClosePreview={() => setPreviewFile(null)}
+        onSelectCategory={setSelectedCategory}
       />
 
+      {/* 계정 관리 모달 */}
       <UserManagerModal
         show={showUserModal}
         onClose={() => setShowUserModal(false)}
