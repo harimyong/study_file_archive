@@ -1,6 +1,8 @@
 import { supabase } from './supabaseClient';
 
+// 파일 목록 불러오기
 export const fetchFiles = async (categoryId, setFiles) => {
+  if (!categoryId) return;
   const { data } = await supabase
     .from('files')
     .select('*')
@@ -10,117 +12,83 @@ export const fetchFiles = async (categoryId, setFiles) => {
   if (data) setFiles(data);
 };
 
-export const handleFileUpload = async (e, selectedCategory, userProfile, setUploading, refreshFiles) => {
+// 선택된 여러 파일 일괄 삭제
+export const handleDeleteSelectedFiles = async (
+  selectedFileIds,
+  files,
+  setFiles,
+  setSelectedFileIds,
+  userProfile
+) => {
   if (userProfile?.role !== 'admin') return;
-  const fileList = e.target.files;
-  if (!fileList || fileList.length === 0 || !selectedCategory) return;
-  setUploading(true);
+  if (selectedFileIds.length === 0) return;
 
-  for (let i = 0; i < fileList.length; i++) {
-    const file = fileList[i];
-    const cleanFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-    const filePath = `${selectedCategory.id}/${Date.now()}_${cleanFileName}`;
-
-    const ext = file.name.split('.').pop().toLowerCase();
-    let customContentType = file.type || 'application/octet-stream';
-
-    if (ext === 'html' || ext === 'htm') customContentType = 'text/html; charset=utf-8';
-    else if (['txt', 'md', 'json', 'js', 'css', 'py', 'java', 'c'].includes(ext)) customContentType = 'text/plain; charset=utf-8';
-
-    const { error: uploadError } = await supabase.storage.from('study-files').upload(filePath, file, {
-      cacheControl: '3600',
-      upsert: true,
-      contentType: customContentType,
-    });
-
-    if (uploadError) continue;
-
-    const { data: urlData } = supabase.storage.from('study-files').getPublicUrl(filePath);
-
-    await supabase.from('files').insert([{
-      category_id: selectedCategory.id,
-      file_name: file.name,
-      file_url: urlData.publicUrl,
-      file_size: file.size,
-      file_type: file.type || ext,
-    }]);
-  }
-
-  refreshFiles(selectedCategory.id);
-  setUploading(false);
-};
-
-export const handleDeleteFile = async (file, userProfile, files, setFiles) => {
-  if (userProfile?.role !== 'admin') return;
-  if (!confirm('파일을 삭제하시겠습니까?')) return;
+  if (!confirm(`선택한 ${selectedFileIds.length}개의 파일을 정말 삭제하시겠습니까?`)) return;
 
   try {
-    const urlParts = file.file_url.split('/study-files/');
-    if (urlParts.length > 1) {
-      await supabase.storage.from('study-files').remove([decodeURIComponent(urlParts[1])]);
+    const filesToDelete = files.filter((f) => selectedFileIds.includes(f.id));
+
+    // 1. Storage 실물 파일들 삭제 경로 추출
+    const storagePaths = filesToDelete
+      .map((file) => {
+        const urlParts = file.file_url.split('/study-files/');
+        return urlParts.length > 1 ? decodeURIComponent(urlParts[1]) : null;
+      })
+      .filter(Boolean);
+
+    if (storagePaths.length > 0) {
+      await supabase.storage.from('study-files').remove(storagePaths);
     }
 
-    await supabase.from('files').delete().eq('id', file.id);
-    setFiles(files.filter((f) => f.id !== file.id));
+    // 2. DB 일괄 삭제
+    const { error } = await supabase
+      .from('files')
+      .delete()
+      .in('id', selectedFileIds);
+
+    if (error) {
+      alert('파일 삭제에 실패했습니다: ' + error.message);
+      return;
+    }
+
+    // 3. UI 업데이트 및 선택 초기화
+    setFiles(files.filter((f) => !selectedFileIds.includes(f.id)));
+    setSelectedFileIds([]);
   } catch (err) {
-    console.error('파일 삭제 실패:', err);
+    console.error('일괄 삭제 에러:', err);
+    alert('삭제 처리 중 오류가 발생했습니다.');
   }
 };
 
-export const handleDownloadFile = async (fileUrl, fileName) => {
+// 선택된 여러 파일 일괄 이동
+export const handleMoveSelectedFiles = async (
+  selectedFileIds,
+  targetCategoryId,
+  fetchFilesCallback,
+  currentCategoryId,
+  setSelectedFileIds,
+  userProfile
+) => {
+  if (userProfile?.role !== 'admin') return;
+  if (selectedFileIds.length === 0 || !targetCategoryId) return;
+
   try {
-    const response = await fetch(fileUrl);
-    const blob = await response.blob();
-    const blobUrl = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = blobUrl;
-    link.download = fileName;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    window.URL.revokeObjectURL(blobUrl);
-  } catch (error) {
-    window.open(fileUrl, '_blank');
-  }
-};
+    // DB의 category_id 일괄 업데이트
+    const { error } = await supabase
+      .from('files')
+      .update({ category_id: targetCategoryId })
+      .in('id', selectedFileIds);
 
-export const handleOpenPreview = async (file, setPreviewFile, setPreviewType, setTextContent) => {
-  setPreviewFile(file);
-  const ext = file.file_name.split('.').pop().toLowerCase();
+    if (error) {
+      alert('파일 이동에 실패했습니다: ' + error.message);
+      return;
+    }
 
-  if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp'].includes(ext)) {
-    setPreviewType('image');
-  } else if (['html', 'htm'].includes(ext)) {
-    setPreviewType('html');
-    setTextContent('불러오는 중...');
-    try {
-      const res = await fetch(file.file_url);
-      const buffer = await res.arrayBuffer();
-      let decoder = new TextDecoder('euc-kr');
-      let text = decoder.decode(buffer);
-      if (text.includes('')) text = new TextDecoder('utf-8').decode(buffer);
-      setTextContent(text);
-    } catch (err) {
-      setTextContent('<p>파일 내용을 불러오지 못했습니다.</p>');
-    }
-  } else if (['txt', 'md', 'json', 'js', 'css', 'py', 'java', 'c', 'cpp'].includes(ext)) {
-    setPreviewType('text');
-    setTextContent('텍스트를 읽어오는 중...');
-    try {
-      const res = await fetch(file.file_url);
-      const buffer = await res.arrayBuffer();
-      let decoder = new TextDecoder('euc-kr');
-      let text = decoder.decode(buffer);
-      if (text.includes('')) text = new TextDecoder('utf-8').decode(buffer);
-      setTextContent(text);
-    } catch (err) {
-      setTextContent('파일을 읽는 중 에러가 발생했습니다.');
-    }
-  } else if (ext === 'pdf') {
-    setPreviewType('pdf');
-  } else if (['hwp', 'hwpx', 'zip', 'exe'].includes(ext)) {
-    setPreviewType('unsupported');
-  } else {
-    setPreviewType('doc');
+    alert(`${selectedFileIds.length}개 파일이 성공적으로 이동되었습니다.`);
+    setSelectedFileIds([]);
+    fetchFilesCallback(currentCategoryId); // 목록 새로고침
+  } catch (err) {
+    console.error('일괄 이동 에러:', err);
+    alert('파일 이동 중 오류가 발생했습니다.');
   }
 };
