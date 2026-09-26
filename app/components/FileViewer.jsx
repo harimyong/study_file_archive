@@ -84,7 +84,7 @@ export default function FileViewer({
       {/* 상단 타이틀 & 뒤로가기 / 업로드 버튼 영역 */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <h1 className="text-xl md:text-2xl font-bold text-gray-800 truncate">
-          {selectedCategory ? selectedCategory.name : '전체 / 최상위 루트'}
+          {selectedCategory ? selectedCategory.name : 'HOME'}
         </h1>
 
         {/* 액션 버튼 그룹 */}
