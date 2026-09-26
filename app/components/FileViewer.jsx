@@ -139,7 +139,7 @@ export default function FileViewer({
               title="상위 폴더로 이동"
             >
               <ArrowLeft size={16} />
-              <span>상위 폴더</span>
+              <span>뒤로 가기</span>
             </button>
           )}
 
@@ -258,71 +258,74 @@ export default function FileViewer({
         </div>
       )}
 
-      {/* 6. 파일 카드 목록 */}
-      {(<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {files.map((file) => {
-            const isSelected = selectedFileIds.includes(file.id);
-            return (
-              <div
-                key={file.id}
-                className={`bg-white p-4 rounded-lg border shadow-sm flex flex-col justify-between hover:shadow-md transition relative ${
-                  isSelected ? 'border-indigo-500 ring-1 ring-indigo-500 bg-indigo-50/20' : ''
-                }`}
-              >
-                <div className="flex items-start space-x-3 mb-3">
-                  {userProfile?.role === 'admin' && (
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={() => handleToggleFileSelect(file.id)}
-                      className="mt-1 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer flex-shrink-0"
-                    />
-                  )}
-                  <FileText className="text-indigo-500 flex-shrink-0 mt-0.5" size={24} />
-                  <div className="overflow-hidden flex-1">
-                    <p
-                      onClick={() => onOpenPreview(file)}
-                      className="font-medium text-sm text-gray-800 truncate cursor-pointer hover:text-indigo-600 hover:underline"
-                      title={`${file.file_name} (클릭하여 미리보기)`}
-                    >
-                      {file.file_name}
-                    </p>
-                    <p className="text-xs text-gray-400">
-                      {(file.file_size / 1024).toFixed(1)} KB
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex justify-end space-x-2 border-t pt-2 mt-2">
-                  <button
+      {/* 파일 카드 목록 영역 */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {files.map((file) => {
+          const isSelected = selectedFileIds.includes(file.id);
+          return (
+            <div
+              key={file.id}
+              className={`bg-white p-4 rounded-lg border shadow-sm flex flex-col justify-between hover:shadow-md transition relative ${
+                isSelected ? 'border-indigo-500 ring-1 ring-indigo-500 bg-indigo-50/20' : ''
+              }`}
+            >
+              <div className="flex items-start space-x-3 mb-3">
+                {/* 관리자 다중 선택 체크박스 */}
+                {userProfile?.role === 'admin' && (
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => handleToggleFileSelect(file.id)}
+                    className="mt-1 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer flex-shrink-0"
+                  />
+                )}
+                <FileText className="text-indigo-500 flex-shrink-0 mt-0.5" size={24} />
+                
+                <div className="overflow-hidden flex-1">
+                  {/* ⭕ 파일 이름 클릭 시 미리보기가 동작하도록 onClick 및 hover 커서 추가 */}
+                  <p
                     onClick={() => onOpenPreview(file)}
-                    className="p-1 text-gray-500 hover:text-indigo-600"
-                    title="미리보기"
+                    className="font-medium text-sm text-gray-800 truncate cursor-pointer hover:text-indigo-600 hover:underline"
+                    title={`${file.file_name} (클릭하여 미리보기)`}
                   >
-                    <Eye size={16} />
-                  </button>
-                  <button
-                    onClick={() => onDownloadFile(file)}
-                    className="p-1 text-gray-500 hover:text-indigo-600"
-                    title="다운로드"
-                  >
-                    <Download size={16} />
-                  </button>
-                  {userProfile?.role === 'admin' && (
-                    <button
-                      onClick={() => onDeleteFile(file)}
-                      className="p-1 text-gray-500 hover:text-red-600"
-                      title="삭제"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  )}
+                    {file.file_name}
+                  </p>
+                  <p className="text-xs text-gray-400">
+                    {(file.file_size / 1024).toFixed(1)} KB
+                  </p>
                 </div>
               </div>
-            );
-          })}
-        </div>
-      )}
+
+              {/* 개별 파일 제어 아이콘 버튼 */}
+              <div className="flex justify-end space-x-2 border-t pt-2 mt-2">
+                <button
+                  onClick={() => onOpenPreview(file)}
+                  className="p-1 text-gray-500 hover:text-indigo-600"
+                  title="미리보기"
+                >
+                  <Eye size={16} />
+                </button>
+                <button
+                  onClick={() => onDownloadFile(file)}
+                  className="p-1 text-gray-500 hover:text-indigo-600"
+                  title="다운로드"
+                >
+                  <Download size={16} />
+                </button>
+                {userProfile?.role === 'admin' && (
+                  <button
+                    onClick={() => onDeleteFile(file)}
+                    className="p-1 text-gray-500 hover:text-red-600"
+                    title="삭제"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
