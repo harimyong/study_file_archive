@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { supabase, supabaseUrl, supabaseAnonKey } from './lib/supabaseClient';
-import { Menu } from 'lucide-react';
+import { Menu, LogOut } from 'lucide-react';
 
 import { fetchCategories, handleCreateCategory, handleDeleteCategory } from './lib/categoryActions';
 import { fetchUsersAndPermissions, handleCreateUser, handleDeleteUser, handleTogglePermission } from './lib/userActions';
@@ -86,6 +86,11 @@ export default function Home() {
     if (error) setAuthError('로그인에 실패했습니다. 아이디와 비밀번호를 확인해 주세요.');
   };
 
+  const handleLogout = async () => {
+    setIsMobileMenuOpen(false);
+    await supabase.auth.signOut();
+  };
+
   if (!session) {
     return (
       <LoginView
@@ -101,20 +106,36 @@ export default function Home() {
 
   return (
     <div className="flex flex-col md:flex-row h-screen bg-gray-100 font-sans overflow-hidden">
+      {/* 모바일 전용 상단 헤더 */}
       <div className="md:hidden bg-white border-b px-4 py-3 flex items-center justify-between z-20">
-        <span className="font-bold text-indigo-600">Study File Archive</span>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className="p-1 text-gray-600 hover:text-indigo-600 focus:outline-none"
+            title="메뉴 열기"
+          >
+            <Menu size={24} />
+          </button>
+          <span className="font-bold text-indigo-600 text-sm">Study File Archive</span>
+        </div>
+
+        {/* 모바일 헤더 우측: 로그아웃 버튼 노출 */}
         <button
-          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          className="p-1 text-gray-600 hover:text-indigo-600 focus:outline-none"
+          onClick={handleLogout}
+          className="flex items-center gap-1 bg-red-50 hover:bg-red-100 text-red-600 px-2.5 py-1 rounded text-xs font-medium transition"
         >
-          <Menu size={24} />
+          <LogOut size={14} />
+          <span>로그아웃</span>
         </button>
       </div>
 
       <CategorySidebar
         categories={categories}
         selectedCategory={selectedCategory}
-        onSelectCategory={setSelectedCategory}
+        onSelectCategory={(cat) => {
+          setSelectedCategory(cat);
+          setIsMobileMenuOpen(false); // 모바일에서 카테고리 선택 시 사이드바 닫기
+        }}
         userProfile={userProfile}
         session={session}
         newCategoryName={newCategoryName}
@@ -135,9 +156,10 @@ export default function Home() {
         }
         onOpenUserModal={() => {
           setShowUserModal(true);
+          setIsMobileMenuOpen(false);
           fetchUsersAndPermissions(setUsersList, setUserPermissions);
         }}
-        onLogout={() => supabase.auth.signOut()}
+        onLogout={handleLogout}
         isMobileOpen={isMobileMenuOpen}
         onCloseMobile={() => setIsMobileMenuOpen(false)}
       />
