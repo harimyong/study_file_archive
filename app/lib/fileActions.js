@@ -79,18 +79,42 @@ export const handleDeleteFile = async (file, userProfile, files, setFiles) => {
 // 파일 강제 다운로드
 export const handleDownloadFile = async (fileUrl, fileName) => {
   try {
+    // 1. 파일 데이터 fetch로 수신
     const response = await fetch(fileUrl);
+    if (!response.ok) throw new Error('파일 수신 실패');
+
     const blob = await response.blob();
     const blobUrl = window.URL.createObjectURL(blob);
+
+    // 2. 가상 앵커 태그 생성 및 다운로드 강제
     const link = document.createElement('a');
     link.href = blobUrl;
-    link.download = fileName;
+    link.download = fileName; // 저장될 파일명
+
     document.body.appendChild(link);
     link.click();
-    document.body.removeChild(link);
-    window.URL.revokeObjectURL(blobUrl);
+
+    // 3. 메모리 정리
+    setTimeout(() => {
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+    }, 200);
   } catch (error) {
-    window.open(fileUrl, '_blank');
+    console.error('Blob 다운로드 실패, 우회 다운로드 시도:', error);
+
+    // 모바일 브라우저 CORS/Blob 차단 우회: Supabase Storage direct download 처리
+    // Supabase URL 끝에 download 파라미터를 붙여 서버 단에서 강제 attachment 다운로드 헤더 분기
+    const directDownloadUrl = fileUrl.includes('?')
+      ? `${fileUrl}&download=${encodeURIComponent(fileName)}`
+      : `${fileUrl}?download=${encodeURIComponent(fileName)}`;
+
+    const fallbackLink = document.createElement('a');
+    fallbackLink.href = directDownloadUrl;
+    fallbackLink.target = '_blank';
+    fallbackLink.download = fileName;
+    document.body.appendChild(fallbackLink);
+    fallbackLink.click();
+    document.body.removeChild(fallbackLink);
   }
 };
 
