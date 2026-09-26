@@ -17,16 +17,10 @@ export default function UserManagerModal({
 }) {
   if (!show) return null;
 
-  // 1. 최상위 디렉토리(parent_id가 null/undefined) 바로 밑의 직계 하위 디렉토리만 추출
-  const rootCategories = categories.filter((c) => !c.parent_id);
-  const rootCategoryIds = rootCategories.map((c) => c.id);
+  // 1. 최상위 카테고리만 필터링 (parent_id가 null 또는 undefined인 1계층 카테고리)
+  const topLevelCategories = categories.filter((c) => !c.parent_id);
 
-  // 최상위 직계 하위 폴더들 (parent_id가 최상위 폴더 ID 중 하나인 경우)
-  const directSubCategories = categories.filter((c) =>
-    rootCategoryIds.includes(c.parent_id)
-  );
-
-  // 2. 특정 폴더 ID를 기준으로 모든 재귀적 하위 자식 폴더 ID 배열을 수집하는 함수
+  // 2. 특정 최상위 폴더 ID를 기준으로 그 아래에 속한 모든 하위 자식 폴더 ID 배열을 수집하는 재귀 함수
   const getAllChildCategoryIds = (parentId) => {
     let childIds = [];
     const directChildren = categories.filter((c) => c.parent_id === parentId);
@@ -39,9 +33,9 @@ export default function UserManagerModal({
     return childIds;
   };
 
-  // 3. 체크박스 클릭 핸들러 (부모 체크 시 부모 + 모든 하위 자식 폴더 함께 토글)
+  // 3. 최상위 카테고리 체크박스 클릭 핸들러 (최상위 폴더 + 하위 폴더 전체 권한 일괄 토글)
   const handleCategoryToggle = (userId, targetCategory) => {
-    // 선택한 카테고리 본인 ID + 모든 하위 자식 폴더 ID 목록
+    // 선택한 최상위 카테고리 ID + 속해있는 모든 하위 폴더 ID 목록
     const allRelatedIds = [
       targetCategory.id,
       ...getAllChildCategoryIds(targetCategory.id),
@@ -50,7 +44,7 @@ export default function UserManagerModal({
     const currentPerms = userPermissions[userId] || [];
     const isCurrentlyChecked = currentPerms.includes(targetCategory.id);
 
-    // 부모 및 모든 하위 폴더 ID 들을 일괄 토글 전달
+    // 상위 및 모든 하위 폴더 권한을 한꺼번에 토글
     onTogglePermission(userId, allRelatedIds, !isCurrentlyChecked);
   };
 
@@ -100,7 +94,7 @@ export default function UserManagerModal({
             </form>
           </div>
 
-          {/* 유저 목록 및 권한 설정 / 유저 삭제 */}
+          {/* 유저 목록 및 최상위 카테고리 권한 설정 / 유저 삭제 */}
           <div>
             <h4 className="font-semibold text-sm text-gray-700 mb-3">
               등록된 유저 권한 및 삭제 관리
@@ -125,14 +119,14 @@ export default function UserManagerModal({
                       </button>
                     </div>
 
-                    {/* 최상위 디렉토리 바로 밑 직계 하위 폴더 목록만 체크박스로 표출 */}
+                    {/* 최상위 카테고리만 목록에 노출 */}
                     <div className="flex flex-wrap gap-3">
-                      {directSubCategories.length === 0 ? (
+                      {topLevelCategories.length === 0 ? (
                         <p className="text-xs text-gray-400">
-                          선택 가능한 하위 카테고리가 없습니다.
+                          선택 가능한 카테고리가 없습니다.
                         </p>
                       ) : (
-                        directSubCategories.map((cat) => {
+                        topLevelCategories.map((cat) => {
                           const isChecked = (
                             userPermissions[usr.id] || []
                           ).includes(cat.id);
