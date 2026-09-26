@@ -259,12 +259,7 @@ export default function FileViewer({
       )}
 
       {/* 6. 파일 카드 목록 */}
-      {files.length === 0 ? (
-        <div className="text-center py-16 text-gray-400 border-2 border-dashed border-gray-200 rounded-lg text-sm">
-          등록된 파일이 없습니다.
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      {(<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {files.map((file) => {
             const isSelected = selectedFileIds.includes(file.id);
             return (
