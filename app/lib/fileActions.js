@@ -80,8 +80,8 @@ export const handleDeleteFile = async (file, userProfile, files, setFiles) => {
 export const handleDownloadFile = async (fileUrl, fileName) => {
   try {
     // 1. Supabase Storage URL 끝에 download 파라미터 추가
-    // 이 파라미터가 들어가면 서버에서 Content-Disposition: attachment 헤더를 반환하여
-    // 모바일 OS 시스템 다운로드 매니저가 직접 파일 다운로드를 감지하고 알림을 띄워줍니다.
+    // 이 파라미터가 부여되면 서버가 Content-Disposition: attachment 헤더를 반환하여
+    // 모바일 OS 다운로드 매니저가 직접 다운로드 이벤트를 인식하고 상단 알림을 띄웁니다.
     const directDownloadUrl = fileUrl.includes('?')
       ? `${fileUrl}&download=${encodeURIComponent(fileName)}`
       : `${fileUrl}?download=${encodeURIComponent(fileName)}`;
