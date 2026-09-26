@@ -134,7 +134,7 @@ export default function FileViewer({
               title="상위 폴더로 이동"
             >
               <ArrowLeft size={16} />
-              <span>상위 폴더</span>
+              <span>뒤로 가기</span>
             </button>
           )}
 
