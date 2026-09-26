@@ -78,30 +78,27 @@ export const handleDeleteFile = async (file, userProfile, files, setFiles) => {
 
 // 파일 강제 다운로드
 export const handleDownloadFile = async (fileUrl, fileName) => {
+  // 1. 사용자에게 다운로드 진행 및 위치 안내 메시지 토스트/알림 출력
+  alert(`'${fileName}' 다운로드가 시작되었습니다.\n다운로드 완료 후 기기의 [파일/다운로드] 폴더에서 확인하실 수 있습니다.`);
+
   try {
-    // 1. Supabase Storage URL 끝에 download 파라미터 추가
-    // 이 파라미터가 부여되면 서버가 Content-Disposition: attachment 헤더를 반환하여
-    // 모바일 OS 다운로드 매니저가 직접 다운로드 이벤트를 인식하고 상단 알림을 띄웁니다.
     const directDownloadUrl = fileUrl.includes('?')
       ? `${fileUrl}&download=${encodeURIComponent(fileName)}`
       : `${fileUrl}?download=${encodeURIComponent(fileName)}`;
 
-    // 2. 가상 앵커 태그 생성
     const link = document.createElement('a');
     link.href = directDownloadUrl;
     link.setAttribute('download', fileName);
-    link.target = '_blank'; // 모바일 브라우저 다운로드 세션 연결
+    link.target = '_blank';
 
     document.body.appendChild(link);
     link.click();
 
-    // 3. 요소 정리
     setTimeout(() => {
       document.body.removeChild(link);
-    }, 100);
+    }, 200);
   } catch (error) {
     console.error('다운로드 오류:', error);
-    // 예외 발생 시 원본 URL로 fallback 처리
     window.open(fileUrl, '_blank');
   }
 };
