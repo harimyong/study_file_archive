@@ -29,7 +29,6 @@ export default function FileViewer({
     setTargetMoveCategoryId('');
   }, [selectedCategory]);
 
-  // 전체 경로 수집
   const getCategoryPath = () => {
     if (!selectedCategory) return [];
     const path = [];
@@ -44,7 +43,6 @@ export default function FileViewer({
 
   const categoryPath = getCategoryPath();
 
-  // 상위 폴더 이동
   const handleGoToParent = () => {
     if (!selectedCategory) return;
     if (!selectedCategory.parent_id) {
@@ -122,7 +120,7 @@ export default function FileViewer({
         })}
       </div>
 
-      {/* 상단 타이틀 & 컨트롤 버튼 */}
+      {/* 헤더 및 컨트롤 버튼 */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <h1 className="text-xl md:text-2xl font-bold text-gray-800 truncate">
           {selectedCategory ? selectedCategory.name : 'Home'}
@@ -281,7 +279,7 @@ export default function FileViewer({
                   )}
                   <FileText className="text-indigo-500 flex-shrink-0 mt-0.5" size={24} />
                   <div className="overflow-hidden flex-1">
-                    {/* 파일 이름 클릭 시 미리보기 실행 */}
+                    {/* 파일 이름 클릭 시 미리보기 동작 */}
                     <p
                       onClick={() => onOpenPreview(file)}
                       className="font-medium text-sm text-gray-800 truncate cursor-pointer hover:text-indigo-600 hover:underline"
@@ -295,7 +293,7 @@ export default function FileViewer({
                   </div>
                 </div>
 
-                {/* 버튼 동작 정상 연결 */}
+                {/* 개별 파일 액션 버튼 */}
                 <div className="flex justify-end space-x-2 border-t pt-2 mt-2">
                   <button
                     onClick={() => onOpenPreview(file)}
@@ -327,7 +325,7 @@ export default function FileViewer({
         </div>
       )}
 
-      {/* 미리보기 모달창 복원 */}
+      {/* 미리보기 모달 */}
       {previewFile && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-2 sm:p-4 z-50">
           <div className="bg-white rounded-lg w-full max-w-4xl h-full sm:h-5/6 flex flex-col p-4 shadow-xl">
@@ -339,15 +337,13 @@ export default function FileViewer({
                 <X size={20} />
               </button>
             </div>
-            <div className="flex-1 overflow-auto border rounded bg-gray-50 p-2">
+            <div className="flex-1 w-full overflow-auto flex items-center justify-center bg-gray-50 border rounded">
               {previewType === 'image' && (
-                <div className="flex items-center justify-center h-full">
-                  <img
-                    src={previewFile.file_url}
-                    alt={previewFile.file_name}
-                    className="max-w-full max-h-full object-contain"
-                  />
-                </div>
+                <img
+                  src={previewFile.file_url}
+                  alt={previewFile.file_name}
+                  className="max-w-full max-h-full object-contain"
+                />
               )}
               {previewType === 'html' && (
                 <iframe
@@ -376,6 +372,19 @@ export default function FileViewer({
                   className="w-full h-full border-0 bg-white"
                   title="Doc Preview"
                 />
+              )}
+              {previewType === 'unsupported' && (
+                <div className="text-center p-8">
+                  <p className="text-gray-600 mb-4">
+                    HWP / HWPX 등의 파일은 브라우저 직접 미리보기를 지원하지 않습니다.
+                  </p>
+                  <button
+                    onClick={() => onDownloadFile(previewFile.file_url, previewFile.file_name)}
+                    className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 font-medium text-sm"
+                  >
+                    파일 다운로드하여 열기
+                  </button>
+                </div>
               )}
             </div>
           </div>
