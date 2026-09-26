@@ -99,8 +99,8 @@ export default function FileViewer({
             </button>
           )}
 
-          {/* 파일 업로드 버튼 */}
-          {selectedCategory && (
+          {/* 파일 업로드 버튼 (관리자만 노출/활성화) */}
+          {selectedCategory && userProfile?.role === 'admin' && (
             <label className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg cursor-pointer text-sm font-medium transition flex-1 sm:flex-none">
               <Upload size={16} />
               <span>{uploading ? '업로드 중...' : '파일 업로드'}</span>

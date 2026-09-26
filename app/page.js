@@ -159,9 +159,30 @@ export default function Home() {
         setNewUserEmail={setNewUserEmail}
         newUserPassword={newUserPassword}
         setNewUserPassword={setNewUserPassword}
-        onCreateUser={(e) => handleCreateUser(e, newUserEmail, newUserPassword, supabaseUrl, supabaseAnonKey, setNewUserEmail, setNewUserPassword, () => fetchUsersAndPermissions(setUsersList, setUserPermissions))}
-        onDeleteUser={(userId, userEmail) => handleDeleteUser(userId, userEmail, usersList, setUsersList)}
-        onTogglePermission={(userId, catId) => handleTogglePermission(userId, catId, userPermissions, setUserPermissions)}
+        onCreateUser={(e) =>
+          handleCreateUser(
+            e,
+            newUserEmail,
+            newUserPassword,
+            supabaseUrl,
+            supabaseAnonKey,
+            setNewUserEmail,
+            setNewUserPassword,
+            () => fetchUsersAndPermissions(setUsersList, setUserPermissions)
+          )
+        }
+        onDeleteUser={(userId, userEmail) =>
+          handleDeleteUser(userId, userEmail, usersList, setUsersList)
+        }
+        onTogglePermission={(userId, categoryIds, shouldEnable) =>
+          handleTogglePermission(
+            userId,
+            categoryIds,
+            shouldEnable,
+            userPermissions,
+            setUserPermissions
+          )
+        }
       />
     </div>
   );

@@ -86,22 +86,42 @@ export const handleDeleteUser = async (userId, userEmail, usersList, setUsersLis
   }
 };
 
-// 권한 토글
-export const handleTogglePermission = async (userId, categoryId, userPermissions, setUserPermissions) => {
+// 카테고리 및 자식 하위 폴더 권한 일괄 토글
+export const handleTogglePermission = async (userId, categoryIds, shouldEnable, userPermissions, setUserPermissions) => {
   const currentPerms = userPermissions[userId] || [];
-  const hasPerm = currentPerms.includes(categoryId);
+  const targetIds = Array.isArray(categoryIds) ? categoryIds : [categoryIds];
 
-  if (hasPerm) {
-    await supabase.from('category_permissions').delete().eq('user_id', userId).eq('category_id', categoryId);
-    setUserPermissions({
-      ...userPermissions,
-      [userId]: currentPerms.filter((id) => id !== categoryId),
-    });
+  if (shouldEnable) {
+    // 추가할 ID 목록 추출
+    const idsToAdd = targetIds.filter((id) => !currentPerms.includes(id));
+    if (idsToAdd.length === 0) return;
+
+    const rowsToInsert = idsToAdd.map((id) => ({
+      user_id: userId,
+      category_id: id,
+    }));
+
+    const { error } = await supabase.from('category_permissions').insert(rowsToInsert);
+
+    if (!error) {
+      setUserPermissions({
+        ...userPermissions,
+        [userId]: [...currentPerms, ...idsToAdd],
+      });
+    }
   } else {
-    await supabase.from('category_permissions').insert([{ user_id: userId, category_id: categoryId }]);
-    setUserPermissions({
-      ...userPermissions,
-      [userId]: [...currentPerms, categoryId],
-    });
+    // 제거할 ID 목록 삭제
+    const { error } = await supabase
+      .from('category_permissions')
+      .delete()
+      .eq('user_id', userId)
+      .in('category_id', targetIds);
+
+    if (!error) {
+      setUserPermissions({
+        ...userPermissions,
+        [userId]: currentPerms.filter((id) => !targetIds.includes(id)),
+      });
+    }
   }
 };
