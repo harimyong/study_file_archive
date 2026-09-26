@@ -119,8 +119,20 @@ export default function Home() {
         session={session}
         newCategoryName={newCategoryName}
         setNewCategoryName={setNewCategoryName}
-        onCreateCategory={(e) => handleCreateCategory(e, newCategoryName, selectedCategory, userProfile, categories, setCategories, setNewCategoryName)}
-        onDeleteCategory={(id) => handleDeleteCategory(id, userProfile, categories, setCategories, setSelectedCategory)}
+        onCreateCategory={(e) =>
+          handleCreateCategory(
+            e,
+            newCategoryName,
+            selectedCategory,
+            userProfile,
+            categories,
+            setCategories,
+            setNewCategoryName
+          )
+        }
+        onDeleteCategory={(id) =>
+          handleDeleteCategory(id, userProfile, categories, setCategories, setSelectedCategory)
+        }
         onOpenUserModal={() => {
           setShowUserModal(true);
           fetchUsersAndPermissions(setUsersList, setUserPermissions);
