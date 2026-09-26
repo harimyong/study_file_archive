@@ -1,6 +1,6 @@
 import { supabase } from './supabaseClient';
 
-// 특정 카테고리 ID 배열을 기준으로 모든 재귀적 하위 자식 폴더 ID를 구하는 함수
+// 특정 카테고리 ID들을 부모로 두는 모든 하위 자식 폴더 ID를 재귀적으로 구하는 함수
 const getAllChildCategoryIds = (allCategories, parentIds) => {
   let childIds = [];
   const directChildren = allCategories.filter((c) => parentIds.includes(c.parent_id));
@@ -47,6 +47,7 @@ export const fetchCategories = async (profile, setCategories, setSelectedCategor
     setCategories(allowedCategories);
   }
 
+  // 항상 Home(null) 위치에서 시작
   setSelectedCategory(null);
 };
 

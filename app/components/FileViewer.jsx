@@ -120,7 +120,7 @@ export default function FileViewer({
         })}
       </div>
 
-      {/* 헤더 및 컨트롤 버튼 */}
+      {/* 헤더 및 타이틀 */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <h1 className="text-xl md:text-2xl font-bold text-gray-800 truncate">
           {selectedCategory ? selectedCategory.name : 'Home'}
@@ -279,7 +279,7 @@ export default function FileViewer({
                   )}
                   <FileText className="text-indigo-500 flex-shrink-0 mt-0.5" size={24} />
                   <div className="overflow-hidden flex-1">
-                    {/* 파일 이름 클릭 시 미리보기 동작 */}
+                    {/* 파일명 클릭 시 미리보기 동작 */}
                     <p
                       onClick={() => onOpenPreview(file)}
                       className="font-medium text-sm text-gray-800 truncate cursor-pointer hover:text-indigo-600 hover:underline"
@@ -293,7 +293,7 @@ export default function FileViewer({
                   </div>
                 </div>
 
-                {/* 개별 파일 액션 버튼 */}
+                {/* 개별 파일 버튼 액션 바 */}
                 <div className="flex justify-end space-x-2 border-t pt-2 mt-2">
                   <button
                     onClick={() => onOpenPreview(file)}
@@ -325,7 +325,7 @@ export default function FileViewer({
         </div>
       )}
 
-      {/* 미리보기 모달 */}
+      {/* 미리보기 모달창 */}
       {previewFile && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-2 sm:p-4 z-50">
           <div className="bg-white rounded-lg w-full max-w-4xl h-full sm:h-5/6 flex flex-col p-4 shadow-xl">
@@ -376,13 +376,13 @@ export default function FileViewer({
               {previewType === 'unsupported' && (
                 <div className="text-center p-8">
                   <p className="text-gray-600 mb-4">
-                    HWP / HWPX 등의 파일은 브라우저 직접 미리보기를 지원하지 않습니다.
+                    브라우저 직접 미리보기를 지원하지 않는 확장자입니다.
                   </p>
                   <button
                     onClick={() => onDownloadFile(previewFile.file_url, previewFile.file_name)}
                     className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 font-medium text-sm"
                   >
-                    파일 다운로드하여 열기
+                    파일 다운로드
                   </button>
                 </div>
               )}

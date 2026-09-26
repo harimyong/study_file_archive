@@ -167,7 +167,6 @@ export default function Home() {
         refreshFiles={(catId) => fetchFiles(catId, setFiles)}
         setFiles={setFiles}
       />
-
       {/* 계정 관리 모달 */}
       <UserManagerModal
         show={showUserModal}
