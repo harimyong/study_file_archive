@@ -17,7 +17,6 @@ export default function FileViewer({
   onClosePreview,
   onSelectCategory,
 }) {
-  // 1. 전체 경로(Breadcrumb) 계산 함수
   const getCategoryPath = () => {
     if (!selectedCategory) return [];
     const path = [];
@@ -32,7 +31,6 @@ export default function FileViewer({
 
   const categoryPath = getCategoryPath();
 
-  // 2. 부모 디렉토리로 이동하는 핸들러
   const handleGoToParent = () => {
     if (!selectedCategory) return;
     if (!selectedCategory.parent_id) {
@@ -43,14 +41,13 @@ export default function FileViewer({
     }
   };
 
-  // 현재 위치의 하위 폴더들
   const subFolders = categories.filter(
     (c) => c.parent_id === (selectedCategory ? selectedCategory.id : null)
   );
 
   return (
     <div className="flex-1 p-4 md:p-8 overflow-y-auto">
-      {/* Breadcrumb 전체 경로 출력 */}
+      {/* 경로(Breadcrumb) 시작점 'Home' 표시 */}
       <div className="flex items-center gap-1.5 text-sm text-gray-500 mb-4 overflow-x-auto whitespace-nowrap py-1">
         <span
           className={`cursor-pointer hover:underline ${
@@ -58,7 +55,7 @@ export default function FileViewer({
           }`}
           onClick={() => onSelectCategory(null)}
         >
-          루트
+          Home
         </span>
         {categoryPath.map((cat, index) => {
           const isLast = index === categoryPath.length - 1;
@@ -80,14 +77,13 @@ export default function FileViewer({
         })}
       </div>
 
-      {/* 헤더 및 컨트롤 버튼 영역 */}
+      {/* 헤더 타이틀 'Home' 적용 */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <h1 className="text-xl md:text-2xl font-bold text-gray-800 truncate">
           {selectedCategory ? selectedCategory.name : 'Home'}
         </h1>
 
         <div className="flex items-center gap-2 w-full sm:w-auto">
-          {/* 부모 디렉토리(상위 폴더) 이동 버튼 */}
           {selectedCategory && (
             <button
               onClick={handleGoToParent}
@@ -95,11 +91,10 @@ export default function FileViewer({
               title="상위 폴더로 이동"
             >
               <ArrowLeft size={16} />
-              <span>뒤로 가기</span>
+              <span>상위 폴더</span>
             </button>
           )}
 
-          {/* 파일 업로드 버튼 (관리자만 노출/활성화) */}
           {selectedCategory && userProfile?.role === 'admin' && (
             <label className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg cursor-pointer text-sm font-medium transition flex-1 sm:flex-none">
               <Upload size={16} />
@@ -137,7 +132,7 @@ export default function FileViewer({
         </div>
       )}
 
-      {/* 파일 목록 영역 (선택 여부 조건문 대신 바로 파일 유무만 체크) */}
+      {/* 파일 목록 영역 */}
       {files.length === 0 ? (
         selectedCategory && (
           <div className="text-center py-16 text-gray-400 border-2 border-dashed border-gray-200 rounded-lg text-sm">

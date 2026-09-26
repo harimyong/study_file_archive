@@ -14,9 +14,8 @@ export default function CategorySidebar({
   onOpenUserModal,
   onLogout,
   isMobileOpen,
-  onCloseMobile
+  onCloseMobile,
 }) {
-  // 현재 위치(selectedCategory)의 직접적인 하위 폴더들만 필터링
   const currentSubFolders = categories.filter(
     (cat) => cat.parent_id === (selectedCategory ? selectedCategory.id : null)
   );
@@ -28,7 +27,6 @@ export default function CategorySidebar({
       } md:block w-full md:w-64 bg-white border-r p-4 flex flex-col justify-between h-full fixed md:static inset-y-0 left-0 z-30 transition-all`}
     >
       <div>
-        {/* 상단 헤더 & 모바일 닫기 */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center space-x-2 text-indigo-600 font-bold text-lg">
             <HardDrive />
@@ -39,13 +37,12 @@ export default function CategorySidebar({
           </button>
         </div>
 
-        {/* 새 폴더/하위 폴더 추가 폼 */}
         {userProfile?.role === 'admin' && (
           <form onSubmit={onCreateCategory} className="mb-4 flex gap-1">
             <input
               type="text"
               placeholder={
-                selectedCategory ? `'${selectedCategory.name}' 하위 폴더...` : '최상위 카테고리...'
+                selectedCategory ? `'${selectedCategory.name}' 하위 폴더...` : '새 카테고리...'
               }
               value={newCategoryName}
               onChange={(e) => setNewCategoryName(e.target.value)}
@@ -61,9 +58,8 @@ export default function CategorySidebar({
           </form>
         )}
 
-        {/* 폴더 탐색 트리가 표시되는 영역 */}
         <div className="space-y-1 overflow-y-auto max-h-[calc(100vh-250px)]">
-          {/* 최상위 루트 버튼 */}
+          {/* 최상위 Home 버튼 */}
           <div
             onClick={() => {
               onSelectCategory(null);
@@ -76,10 +72,9 @@ export default function CategorySidebar({
             }`}
           >
             <Folder size={16} className="mr-2 text-amber-500" />
-            <span>최상위 (루트)</span>
+            <span>Home</span>
           </div>
 
-          {/* 현재 폴더 내의 하위 폴더 목록 */}
           {currentSubFolders.map((cat) => (
             <div
               key={cat.id}
@@ -111,7 +106,6 @@ export default function CategorySidebar({
         </div>
       </div>
 
-      {/* 사용자 프로필 및 계정 관리 */}
       <div className="border-t pt-4 space-y-2 bg-white">
         <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
           <span className="truncate font-medium">
