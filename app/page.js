@@ -149,15 +149,23 @@ export default function Home() {
         uploading={uploading}
         files={files}
         categories={categories}
-        onFileUpload={(e) => handleFileUpload(e, selectedCategory, userProfile, setUploading, (catId) => fetchFiles(catId, setFiles))}
+        onFileUpload={(e) =>
+          handleFileUpload(e, selectedCategory, userProfile, setUploading, (catId) =>
+            fetchFiles(catId, setFiles)
+          )
+        }
         onDeleteFile={(file) => handleDeleteFile(file, userProfile, files, setFiles)}
         onDownloadFile={handleDownloadFile}
         previewFile={previewFile}
         previewType={previewType}
         textContent={textContent}
-        onOpenPreview={(file) => handleOpenPreview(file, setPreviewFile, setPreviewType, setTextContent)}
+        onOpenPreview={(file) =>
+          handleOpenPreview(file, setPreviewFile, setPreviewType, setTextContent)
+        }
         onClosePreview={() => setPreviewFile(null)}
         onSelectCategory={setSelectedCategory}
+        refreshFiles={(catId) => fetchFiles(catId, setFiles)}
+        setFiles={setFiles}
       />
 
       {/* 계정 관리 모달 */}

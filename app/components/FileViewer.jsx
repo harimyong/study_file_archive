@@ -21,17 +21,15 @@ export default function FileViewer({
   refreshFiles,
   setFiles
 }) {
-  // 다중 선택된 파일 ID 목록 & 이동 대상 폴더 ID
   const [selectedFileIds, setSelectedFileIds] = useState([]);
   const [targetMoveCategoryId, setTargetMoveCategoryId] = useState('');
 
-  // 카테고리 변경 시 선택 상태 초기화
   useEffect(() => {
     setSelectedFileIds([]);
     setTargetMoveCategoryId('');
   }, [selectedCategory]);
 
-  // 전체 경로(Breadcrumb) 수집 함수
+  // 전체 경로(Breadcrumb) 계산
   const getCategoryPath = () => {
     if (!selectedCategory) return [];
     const path = [];
@@ -46,7 +44,7 @@ export default function FileViewer({
 
   const categoryPath = getCategoryPath();
 
-  // 부모(상위) 디렉토리로 이동 핸들러
+  // 상위 폴더 이동
   const handleGoToParent = () => {
     if (!selectedCategory) return;
     if (!selectedCategory.parent_id) {
@@ -57,17 +55,28 @@ export default function FileViewer({
     }
   };
 
-  // 현재 위치의 직계 하위 폴더 목록
   const subFolders = categories.filter(
     (c) => c.parent_id === (selectedCategory ? selectedCategory.id : null)
   );
+
+  // ★ 특정 폴더의 최상위 카테고리 이름을 찾는 함수
+  const getRootCategoryName = (cat) => {
+    if (!cat.parent_id) return null; // 본인이 최상위 카테고리임
+
+    let current = cat;
+    while (current.parent_id) {
+      const parent = categories.find((c) => c.id === current.parent_id);
+      if (!parent) break;
+      current = parent;
+    }
+    return current.name;
+  };
 
   // 이동 가능한 대상 폴더 목록 (현재 위치 제외)
   const availableMoveCategories = categories.filter(
     (c) => c.id !== selectedCategory?.id
   );
 
-  // 파일 전체 선택 / 해제 토글
   const handleSelectAll = () => {
     if (selectedFileIds.length === files.length) {
       setSelectedFileIds([]);
@@ -76,7 +85,6 @@ export default function FileViewer({
     }
   };
 
-  // 개별 파일 선택 / 해제 토글
   const handleToggleFileSelect = (fileId) => {
     if (selectedFileIds.includes(fileId)) {
       setSelectedFileIds(selectedFileIds.filter((id) => id !== fileId));
@@ -117,14 +125,13 @@ export default function FileViewer({
         })}
       </div>
 
-      {/* 2. 헤더 및 상단 메인 버튼 그룹 */}
+      {/* 2. 헤더 및 상단 버튼 */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <h1 className="text-xl md:text-2xl font-bold text-gray-800 truncate">
           {selectedCategory ? selectedCategory.name : 'Home'}
         </h1>
 
         <div className="flex items-center gap-2 w-full sm:w-auto">
-          {/* [상위 폴더 이동 버튼]: Home 위치가 아닐 때만 노출 */}
           {selectedCategory && (
             <button
               onClick={handleGoToParent}
@@ -136,7 +143,6 @@ export default function FileViewer({
             </button>
           )}
 
-          {/* [파일 업로드 버튼]: 관리자일 때 항상 노출 */}
           {userProfile?.role === 'admin' && (
             <label className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg cursor-pointer text-sm font-medium transition flex-1 sm:flex-none">
               <Upload size={16} />
@@ -153,7 +159,7 @@ export default function FileViewer({
         </div>
       </div>
 
-      {/* 3. 다중 선택 파일 액션 바 (관리자 + 선택된 파일이 1개 이상일 때 노출) */}
+      {/* 3. 다중 선택 파일 액션 바 */}
       {userProfile?.role === 'admin' && selectedFileIds.length > 0 && (
         <div className="mb-4 p-3 bg-indigo-50 border border-indigo-200 rounded-lg flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-indigo-900 text-sm font-semibold">
@@ -162,18 +168,21 @@ export default function FileViewer({
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
-            {/* 일괄 이동 드롭다운 & 버튼 */}
+            {/* ★ 드롭다운 옵션에 최상위 카테고리 표시 적용 */}
             <select
               value={targetMoveCategoryId}
               onChange={(e) => setTargetMoveCategoryId(e.target.value)}
               className="text-xs border rounded px-2 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
             >
               <option value="">이동할 폴더 선택...</option>
-              {availableMoveCategories.map((cat) => (
-                <option key={cat.id} value={cat.id}>
-                  📁 {cat.name}
-                </option>
-              ))}
+              {availableMoveCategories.map((cat) => {
+                const rootName = getRootCategoryName(cat);
+                return (
+                  <option key={cat.id} value={cat.id}>
+                    📁 {cat.name} {rootName ? `(${rootName})` : ''}
+                  </option>
+                );
+              })}
             </select>
 
             <button
@@ -181,8 +190,8 @@ export default function FileViewer({
                 handleMoveSelectedFiles(
                   selectedFileIds,
                   targetMoveCategoryId,
-                  refreshFiles,
                   selectedCategory?.id,
+                  refreshFiles,
                   setSelectedFileIds,
                   userProfile
                 )
@@ -194,7 +203,6 @@ export default function FileViewer({
               <span>선택 이동</span>
             </button>
 
-            {/* 일괄 삭제 버튼 */}
             <button
               onClick={() =>
                 handleDeleteSelectedFiles(
@@ -214,7 +222,7 @@ export default function FileViewer({
         </div>
       )}
 
-      {/* 4. 하위 폴더 카드 영역 */}
+      {/* 4. 하위 폴더 목록 */}
       {subFolders.length > 0 && (
         <div className="mb-6">
           <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
@@ -235,7 +243,7 @@ export default function FileViewer({
         </div>
       )}
 
-      {/* 5. 전체 선택 체크박스 바 (관리자 전용) */}
+      {/* 5. 전체 선택 체크박스 바 */}
       {files.length > 0 && userProfile?.role === 'admin' && (
         <div className="flex items-center justify-between mb-3 text-xs text-gray-500">
           <label className="flex items-center gap-1.5 cursor-pointer hover:text-gray-800">
@@ -250,7 +258,7 @@ export default function FileViewer({
         </div>
       )}
 
-      {/* 6. 파일 카드 목록 영역 */}
+      {/* 6. 파일 카드 목록 */}
       {files.length === 0 ? (
         <div className="text-center py-16 text-gray-400 border-2 border-dashed border-gray-200 rounded-lg text-sm">
           등록된 파일이 없습니다.
@@ -267,7 +275,6 @@ export default function FileViewer({
                 }`}
               >
                 <div className="flex items-start space-x-3 mb-3">
-                  {/* 관리자 다중 선택 체크박스 */}
                   {userProfile?.role === 'admin' && (
                     <input
                       type="checkbox"
@@ -291,7 +298,6 @@ export default function FileViewer({
                   </div>
                 </div>
 
-                {/* 개별 파일 제어 아이콘 버튼 */}
                 <div className="flex justify-end space-x-2 border-t pt-2 mt-2">
                   <button
                     onClick={() => onOpenPreview(file)}

@@ -28,7 +28,6 @@ export const handleDeleteSelectedFiles = async (
   try {
     const filesToDelete = files.filter((f) => selectedFileIds.includes(f.id));
 
-    // 1. Storage 실물 파일들 삭제 경로 추출
     const storagePaths = filesToDelete
       .map((file) => {
         const urlParts = file.file_url.split('/study-files/');
@@ -40,7 +39,6 @@ export const handleDeleteSelectedFiles = async (
       await supabase.storage.from('study-files').remove(storagePaths);
     }
 
-    // 2. DB 일괄 삭제
     const { error } = await supabase
       .from('files')
       .delete()
@@ -51,7 +49,6 @@ export const handleDeleteSelectedFiles = async (
       return;
     }
 
-    // 3. UI 업데이트 및 선택 초기화
     setFiles(files.filter((f) => !selectedFileIds.includes(f.id)));
     setSelectedFileIds([]);
   } catch (err) {
@@ -64,8 +61,8 @@ export const handleDeleteSelectedFiles = async (
 export const handleMoveSelectedFiles = async (
   selectedFileIds,
   targetCategoryId,
-  fetchFilesCallback,
   currentCategoryId,
+  fetchFilesCallback,
   setSelectedFileIds,
   userProfile
 ) => {
@@ -73,7 +70,6 @@ export const handleMoveSelectedFiles = async (
   if (selectedFileIds.length === 0 || !targetCategoryId) return;
 
   try {
-    // DB의 category_id 일괄 업데이트
     const { error } = await supabase
       .from('files')
       .update({ category_id: targetCategoryId })
@@ -86,7 +82,9 @@ export const handleMoveSelectedFiles = async (
 
     alert(`${selectedFileIds.length}개 파일이 성공적으로 이동되었습니다.`);
     setSelectedFileIds([]);
-    fetchFilesCallback(currentCategoryId); // 목록 새로고침
+    if (typeof fetchFilesCallback === 'function') {
+      fetchFilesCallback(currentCategoryId);
+    }
   } catch (err) {
     console.error('일괄 이동 에러:', err);
     alert('파일 이동 중 오류가 발생했습니다.');
