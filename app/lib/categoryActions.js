@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient'; // 본인 경로에 맞게 지정 (또는 인자로 supabase 전달)
+import { supabase } from './supabaseClient';
 
 // 카테고리 목록 조회
 export const fetchCategories = async (profile, setCategories, setSelectedCategory, selectedCategory) => {
