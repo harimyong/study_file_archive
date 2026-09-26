@@ -15,8 +15,8 @@ const getAllChildCategoryIds = (allCategories, parentIds) => {
   return childIds;
 };
 
-// 카테고리 목록 불러오기 (권한 유저 하위 폴더 자동 포함)
-export const fetchCategories = async (profile, setCategories, setSelectedCategory) => {
+// 카테고리 목록 불러오기 (유저 하위 폴더 자동 포함 및 현재 위치 유지 보장)
+export const fetchCategories = async (profile, setCategories) => {
   if (!profile) return;
 
   const { data: allCategories, error } = await supabase
@@ -46,9 +46,7 @@ export const fetchCategories = async (profile, setCategories, setSelectedCategor
     const allowedCategories = allCategories.filter((c) => totalAllowedIds.includes(c.id));
     setCategories(allowedCategories);
   }
-
-  // 항상 Home(null) 위치에서 시작
-  setSelectedCategory(null);
+  // ★ setSelectedCategory(null) 구문을 완전히 제거하여 탭 이동 시 Home으로 튕기는 문제 해결!
 };
 
 // 카테고리 생성

@@ -3,12 +3,10 @@ import { useState, useEffect } from 'react';
 import { supabase, supabaseUrl, supabaseAnonKey } from './lib/supabaseClient';
 import { Menu } from 'lucide-react';
 
-// 외부 액션 모듈 불러오기
 import { fetchCategories, handleCreateCategory, handleDeleteCategory } from './lib/categoryActions';
 import { fetchUsersAndPermissions, handleCreateUser, handleDeleteUser, handleTogglePermission } from './lib/userActions';
 import { fetchFiles, handleFileUpload, handleDeleteFile, handleDownloadFile, handleOpenPreview } from './lib/fileActions';
 
-// UI 컴포넌트 불러오기
 import LoginView from './components/LoginView';
 import CategorySidebar from './components/CategorySidebar';
 import FileViewer from './components/FileViewer';
@@ -22,7 +20,7 @@ export default function Home() {
   const [authError, setAuthError] = useState('');
 
   const [categories, setCategories] = useState([]);
-  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [selectedCategory, setSelectedCategory] = useState(null); // 초기값 Home (null)
   const [files, setFiles] = useState([]);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [uploading, setUploading] = useState(false);
@@ -37,7 +35,6 @@ export default function Home() {
   const [newUserPassword, setNewUserPassword] = useState('');
   const [userPermissions, setUserPermissions] = useState({});
 
-  // 모바일 사이드바 열림/닫힘 토글 상태 추가
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -53,6 +50,7 @@ export default function Home() {
         setUserProfile(null);
         setCategories([]);
         setFiles([]);
+        setSelectedCategory(null);
       }
     });
 
@@ -63,13 +61,17 @@ export default function Home() {
     const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
     if (data) {
       setUserProfile(data);
-      fetchCategories(data, setCategories, setSelectedCategory, selectedCategory);
+      // 카테고리를 가져오되 현재 선택된 selectedCategory 상태는 절대 건드리지 않음
+      fetchCategories(data, setCategories);
     }
   };
 
   useEffect(() => {
-    if (selectedCategory) fetchFiles(selectedCategory.id, setFiles);
-    else setFiles([]);
+    if (selectedCategory) {
+      fetchFiles(selectedCategory.id, setFiles);
+    } else {
+      setFiles([]);
+    }
   }, [selectedCategory]);
 
   const handleLogin = async (e) => {
@@ -99,7 +101,6 @@ export default function Home() {
 
   return (
     <div className="flex flex-col md:flex-row h-screen bg-gray-100 font-sans overflow-hidden">
-      {/* 모바일 최상단 토글 헤더 */}
       <div className="md:hidden bg-white border-b px-4 py-3 flex items-center justify-between z-20">
         <span className="font-bold text-indigo-600">Study File Archive</span>
         <button
@@ -110,7 +111,6 @@ export default function Home() {
         </button>
       </div>
 
-      {/* 반응형 사이드바 컴포넌트 */}
       <CategorySidebar
         categories={categories}
         selectedCategory={selectedCategory}
@@ -142,7 +142,6 @@ export default function Home() {
         onCloseMobile={() => setIsMobileMenuOpen(false)}
       />
 
-      {/* 파일 뷰어 컴포넌트 */}
       <FileViewer
         selectedCategory={selectedCategory}
         userProfile={userProfile}
@@ -167,7 +166,7 @@ export default function Home() {
         refreshFiles={(catId) => fetchFiles(catId, setFiles)}
         setFiles={setFiles}
       />
-      {/* 계정 관리 모달 */}
+
       <UserManagerModal
         show={showUserModal}
         onClose={() => setShowUserModal(false)}
