@@ -1,7 +1,7 @@
 import './globals.css'
 
 export const metadata = {
-  title: 'Study File Archive | 학습 자료 스토리지',
+  title: 'Study File Archive',
   description: '개인용 학습 자료 웹 스토리지 서비스',
   icons: {
     icon: '/favicon.png', // public/favicon.ico 경로 참조
